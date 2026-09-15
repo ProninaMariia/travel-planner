@@ -1,0 +1,1144 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Travel Planner</title>
+<style>
+  :root{
+    --bg:#f6f5f2; --panel:#fffefb; --ink:#1d1c19; --muted:#6f6b62; --line:#e2ded5;
+    --accent:#0f766e; --accent-soft:#d7ece9; --warn:#b45309; --warn-soft:#fdf0dc;
+    --sand:#8b5cf6; --sand-soft:#ece6fd; --radius:10px;
+  }
+  @media (prefers-color-scheme: dark){
+    :root{
+      --bg:#15161a; --panel:#1d1f24; --ink:#e9e7e2; --muted:#9a968d; --line:#31343c;
+      --accent:#5eead4; --accent-soft:#13312f; --warn:#fbbf24; --warn-soft:#3a2c11;
+      --sand:#c4b5fd; --sand-soft:#2a2340;
+    }
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);
+       font:14px/1.45 ui-sans-serif,-apple-system,"Segoe UI",Roboto,sans-serif}
+  header{position:sticky;top:0;z-index:20;background:var(--panel);border-bottom:1px solid var(--line);
+         padding:10px 16px;display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+  header h1{font-size:15px;margin:0 12px 0 0;font-weight:650;letter-spacing:.2px}
+  .grow{flex:1}
+  input,select,button,textarea{font:inherit;color:inherit}
+  input,select,textarea{background:var(--bg);border:1px solid var(--line);border-radius:7px;padding:5px 8px}
+  input:focus,textarea:focus,select:focus{outline:2px solid var(--accent);outline-offset:-1px}
+  button{background:var(--panel);border:1px solid var(--line);border-radius:7px;padding:5px 10px;cursor:pointer}
+  button:hover{border-color:var(--accent)}
+  button.primary{background:var(--accent);border-color:var(--accent);color:var(--panel);font-weight:600}
+  button.ghost{background:transparent;border-color:transparent;color:var(--muted);padding:3px 6px}
+  button.ghost:hover{color:var(--ink);border-color:var(--line)}
+  main{display:grid;grid-template-columns:minmax(0,1.6fr) minmax(0,1fr);gap:16px;padding:16px;align-items:start}
+  @media (max-width:900px){main{grid-template-columns:1fr}}
+  section.col{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);padding:12px}
+  section.col > h2{margin:0 0 4px;font-size:12px;text-transform:uppercase;letter-spacing:.09em;color:var(--muted)}
+  .hint{color:var(--muted);font-size:12px}
+  .addbar{display:flex;gap:6px;margin:8px 0 10px;position:relative}
+  .addbar input{flex:1}
+  .suggest{position:absolute;top:100%;left:0;right:0;z-index:30;background:var(--panel);
+           border:1px solid var(--line);border-radius:8px;margin-top:3px;max-height:260px;overflow:auto;
+           box-shadow:0 8px 24px rgba(0,0,0,.14)}
+  .suggest div{padding:6px 9px;cursor:pointer;border-bottom:1px solid var(--line);font-size:13px}
+  .suggest div:last-child{border-bottom:0}
+  .suggest div:hover,.suggest div.sel{background:var(--accent-soft)}
+  .list{min-height:60px}
+  .card{background:var(--bg);border:1px solid var(--line);border-radius:9px;padding:8px 10px;margin:6px 0}
+  .card.dragging{opacity:.4}
+  .card .top{display:flex;align-items:center;gap:7px}
+  .handle{cursor:grab;color:var(--muted);user-select:none;font-size:15px;line-height:1}
+  .name{font-weight:600;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .badge{font-size:11px;padding:1px 6px;border-radius:20px;background:var(--accent-soft);color:var(--accent);white-space:nowrap}
+  .badge.warn{background:var(--warn-soft);color:var(--warn)}
+  .badge.grey{background:transparent;color:var(--muted);border:1px solid var(--line)}
+  .times{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-top:6px;font-size:12px;color:var(--muted)}
+  .times b{color:var(--ink);font-variant-numeric:tabular-nums;font-weight:600}
+  .times input[type=datetime-local]{font-size:11px;padding:2px 4px}
+  .acts{margin:6px 0 0;padding:6px 0 0;border-top:1px dashed var(--line)}
+  .act{display:flex;gap:6px;align-items:center;font-size:13px;padding:1px 0}
+  .act .t{flex:1;min-width:0}
+  .act input.t{border:0;background:transparent;padding:2px 3px;width:100%}
+  .act input.h{width:58px;text-align:right;padding:2px 5px;font-size:12px}
+  .leg{display:flex;gap:8px;align-items:center;margin:2px 0 2px 16px;font-size:12px;color:var(--muted)}
+  .leg .line{color:var(--accent)}
+  .leg input{width:62px;padding:2px 5px;font-size:12px;text-align:right}
+  .dayhead{display:flex;gap:10px;align-items:baseline;margin:14px 0 2px;padding:5px 8px;
+           border-radius:7px;background:var(--accent-soft);color:var(--accent);font-size:12px;font-weight:650}
+  .dayhead .sum{margin-left:auto;font-weight:500;font-variant-numeric:tabular-nums}
+  .totals{display:flex;flex-wrap:wrap;gap:14px;margin-top:12px;padding-top:10px;border-top:1px solid var(--line);
+          font-size:13px;font-variant-numeric:tabular-nums}
+  .totals b{font-size:15px}
+  .drop{outline:2px dashed var(--accent);outline-offset:3px;border-radius:9px}
+  .sandbox .card{border-left:3px solid var(--sand)}
+  details.settings summary{cursor:pointer;color:var(--muted);font-size:12px;padding:4px 0}
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:6px 10px;margin:6px 0;font-size:12px;color:var(--muted)}
+  .grid2 label{display:flex;align-items:center;gap:6px;justify-content:space-between}
+  .grid2 input{width:82px;text-align:right}
+  textarea#json{width:100%;height:190px;font:11px/1.4 ui-monospace,SFMono-Regular,Menlo,monospace;resize:vertical}
+  .row{display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin:6px 0}
+  .empty{color:var(--muted);font-size:12px;padding:14px;text-align:center;border:1px dashed var(--line);border-radius:8px}
+  #toast{position:fixed;bottom:16px;left:50%;transform:translateX(-50%);background:var(--ink);color:var(--bg);
+         padding:8px 14px;border-radius:20px;font-size:13px;opacity:0;transition:opacity .2s;pointer-events:none;z-index:50}
+  #toast.on{opacity:1}
+</style>
+</head>
+<body>
+
+<header>
+  <h1>🧭 Travel Planner</h1>
+  <input id="title" placeholder="Trip name" style="width:180px">
+  <label class="hint">start <input id="start" type="datetime-local"></label>
+  <span class="grow"></span>
+  <span id="netbadge" class="badge grey">idle</span>
+  <button id="btnMap">🗺 Map</button>
+  <button id="btnData">Data / JSON</button>
+</header>
+
+<main>
+  <section class="col">
+    <h2>Route</h2>
+    <div class="addbar">
+      <input id="addName" placeholder="Add a stop — e.g. Lviv  (Enter to search, Shift+Enter to add as-is)">
+      <button class="primary" id="btnAdd">Add</button>
+      <div class="suggest" id="suggest" hidden></div>
+    </div>
+    <div class="list" id="route" data-list="route"></div>
+    <div class="totals" id="totals"></div>
+  </section>
+
+  <section class="col sandbox">
+    <h2>Sandbox — maybe, if there's time</h2>
+    <div class="hint">Drag stops here to park them; drag back into the route to schedule them. Parked stops never count toward totals.</div>
+    <div class="list" id="sandbox" data-list="sandbox" style="margin-top:8px"></div>
+
+    <details class="settings" style="margin-top:14px">
+      <summary>Settings</summary>
+      <div class="grid2">
+        <label>day starts <input id="dayStart" type="time"></label>
+        <label>day ends <input id="dayEnd" type="time"></label>
+        <label>avg speed km/h <input id="avgSpeed" type="number" min="1" step="1"></label>
+        <label>road factor <input id="roadFactor" type="number" min="1" step="0.05"></label>
+        <label>break per stop (h) <input id="stopBuffer" type="number" min="0" step="0.25"></label>
+        <label>online lookups <input id="online" type="checkbox" style="width:auto"></label>
+      </div>
+      <div class="hint">Online = OpenStreetMap Nominatim for coordinates + OSRM for real road distance. Off = straight line × road factor ÷ avg speed. Every leg can be overridden by hand regardless.</div>
+    </details>
+
+    <details class="settings" id="dataPanel" style="margin-top:10px">
+      <summary>Data (JSON) — copy this somewhere</summary>
+      <div class="row">
+        <button id="btnCopy">Copy</button>
+        <button id="btnDownload">Download</button>
+        <button id="btnLoad">Load pasted JSON</button>
+        <button id="btnNew" class="ghost">New trip</button>
+      </div>
+      <textarea id="json" spellcheck="false"></textarea>
+      <div class="hint">Autosaved to this browser too. Paste JSON above and hit “Load pasted JSON”.</div>
+    </details>
+  </section>
+</main>
+
+<div id="toast"></div>
+
+<script>
+"use strict";
+
+/* ---------------------------------------------------------------- state */
+
+const LS_KEY = "travel-planner-v1";
+
+function uid(){ return Math.random().toString(36).slice(2,9); }
+
+function blank(){
+  return {
+    version: 1,
+    title: "New trip",
+    start: isoLocal(new Date(Date.now()+864e5)).slice(0,10)+"T09:00",
+    settings: { dayStart:"09:00", dayEnd:"20:00", avgSpeedKmh:70, roadFactor:1.25, stopBuffer:0, online:true },
+    route: [],
+    sandbox: [],
+    legCache: {}
+  };
+}
+
+function newWp(name, lat, lon, label){
+  return { id:uid(), name:name, lat:(lat??null), lon:(lon??null), label:label||"",
+           arrive:null, overnight:false, legKm:null, legH:null, notes:"", activities:[] };
+}
+
+let state = load() || blank();
+
+function load(){
+  try{
+    const raw = localStorage.getItem(LS_KEY);
+    if(!raw) return null;
+    return migrate(JSON.parse(raw));
+  }catch(e){ return null; }
+}
+function migrate(d){
+  const b = blank();
+  d = Object.assign(b, d||{});
+  d.settings = Object.assign(b.settings, d.settings||{});
+  d.route = (d.route||[]).map(fixWp);
+  d.sandbox = (d.sandbox||[]).map(fixWp);
+  d.legCache = d.legCache||{};
+  return d;
+}
+function fixWp(w){
+  const n = newWp(w.name||"?", w.lat, w.lon, w.label);
+  Object.assign(n, w);
+  n.id = w.id || uid();
+  n.activities = (w.activities||[]).map(a=>({id:a.id||uid(), title:a.title||"", hours:num(a.hours)||0}));
+  return n;
+}
+function save(){
+  try{ localStorage.setItem(LS_KEY, JSON.stringify(state)); }catch(e){}
+}
+
+/* ---------------------------------------------------------------- utils */
+
+const num = v => { const n = parseFloat(v); return isFinite(n) ? n : null; };
+const R5 = v => Math.round(v*1e5)/1e5;
+
+function isoLocal(d){
+  const p = n => String(n).padStart(2,"0");
+  return d.getFullYear()+"-"+p(d.getMonth()+1)+"-"+p(d.getDate())+"T"+p(d.getHours())+":"+p(d.getMinutes());
+}
+function parseLocal(s){
+  if(!s) return null;
+  const m = /^(\d{4})-(\d\d)-(\d\d)[T ](\d\d):(\d\d)/.exec(s);
+  if(!m) return null;
+  return new Date(+m[1], +m[2]-1, +m[3], +m[4], +m[5], 0, 0);
+}
+const hm  = s => { const m=/^(\d\d?):(\d\d)$/.exec(s||""); return m ? (+m[1])*60 + (+m[2]) : null; };
+const dayKey = d => isoLocal(d).slice(0,10);
+function atMin(d, mins){ const x = new Date(d); x.setHours(0,0,0,0); x.setMinutes(mins); return x; }
+function nextDay(d, mins){ const x = new Date(d); x.setHours(0,0,0,0); x.setDate(x.getDate()+1); x.setMinutes(mins); return x; }
+
+function fmtH(h){
+  if(h==null) return "—";
+  const t = Math.round(h*60);
+  const H = Math.floor(t/60), M = t%60;
+  return H ? (H+"h"+(M?String(M).padStart(2,"0"):"")) : (M+"m");
+}
+const fmtKm = k => k==null ? "—" : (k>=100 ? Math.round(k) : Math.round(k*10)/10) + " km";
+const fmtClock = d => d ? String(d.getHours()).padStart(2,"0")+":"+String(d.getMinutes()).padStart(2,"0") : "—";
+function fmtDate(d){
+  return d.toLocaleDateString(undefined,{weekday:"short", day:"numeric", month:"short"});
+}
+
+function haversine(a,b){
+  const toR = x => x*Math.PI/180, Rk = 6371;
+  const dLat = toR(b.lat-a.lat), dLon = toR(b.lon-a.lon);
+  const s = Math.sin(dLat/2)**2 + Math.cos(toR(a.lat))*Math.cos(toR(b.lat))*Math.sin(dLon/2)**2;
+  return 2*Rk*Math.asin(Math.min(1,Math.sqrt(s)));
+}
+
+/** Google/OSRM encoded polyline (precision 5) -> [[lat,lon], …]. */
+function decodePoly(str){
+  const out = [];
+  let i = 0, lat = 0, lon = 0;
+  while(i < str.length){
+    let shift = 0, result = 0, byte;
+    do { byte = str.charCodeAt(i++) - 63; result |= (byte & 0x1f) << shift; shift += 5; } while(byte >= 0x20);
+    lat += (result & 1) ? ~(result >> 1) : (result >> 1);
+    shift = 0; result = 0;
+    do { byte = str.charCodeAt(i++) - 63; result |= (byte & 0x1f) << shift; shift += 5; } while(byte >= 0x20);
+    lon += (result & 1) ? ~(result >> 1) : (result >> 1);
+    out.push([lat/1e5, lon/1e5]);
+  }
+  return out;
+}
+
+function toast(msg){
+  const t = document.getElementById("toast");
+  t.textContent = msg; t.classList.add("on");
+  clearTimeout(toast._t); toast._t = setTimeout(()=>t.classList.remove("on"), 1800);
+}
+function netBadge(text, warn){
+  const b = document.getElementById("netbadge");
+  b.textContent = text; b.className = "badge " + (warn ? "warn" : "grey");
+}
+
+/* ------------------------------------------------------------- distance */
+
+function legKey(a,b){
+  if(a.lat==null||b.lat==null) return null;
+  return R5(a.lat)+","+R5(a.lon)+"|"+R5(b.lat)+","+R5(b.lon);
+}
+
+/** Distance/time for the hop into `b` coming from `a`. Manual > cached road > straight-line. */
+function legFor(a,b){
+  const S = state.settings;
+  if(b.legKm!=null || b.legH!=null){
+    const km = b.legKm!=null ? b.legKm : null;
+    const h  = b.legH!=null ? b.legH : (km!=null ? km/S.avgSpeedKmh : 0);
+    return { km:(km!=null?km:(h*S.avgSpeedKmh)), hours:h, src:"manual" };
+  }
+  const k = legKey(a,b);
+  if(k && state.legCache[k]) { const c = state.legCache[k]; return { km:c.km, hours:c.h, src:"road" }; }
+  if(a.lat!=null && b.lat!=null){
+    const km = haversine(a,b) * S.roadFactor;
+    return { km:km, hours:km/S.avgSpeedKmh, src:"est" };
+  }
+  return null;
+}
+
+/* ------------------------------------------------------------- schedule */
+
+function stayHours(w){
+  const acts = (w.activities||[]).reduce((s,a)=>s+(num(a.hours)||0),0);
+  return acts + (acts>0 ? (num(state.settings.stopBuffer)||0) : 0);
+}
+
+/** Spend `hours` starting at `clock`, pushing past the end of each day. */
+function spend(clock, hours, kind, km, add){
+  const S = state.settings;
+  const startM = hm(S.dayStart), endM = hm(S.dayEnd);
+  const windowed = startM!=null && endM!=null && endM > startM;
+  let t = new Date(clock), left = hours, guard = 0, splits = 0;
+  if(hours<=0) return { end:t, split:false };
+  while(left > 1e-9 && guard++ < 500){
+    if(windowed){
+      const dayEnd = atMin(t, endM);
+      if(t >= dayEnd){ t = nextDay(t, startM); continue; }
+      const avail = (dayEnd - t)/36e5;
+      const use = Math.min(avail, left);
+      if(use <= 1e-9){ t = nextDay(t, startM); continue; }
+      add(dayKey(t), kind, use, km ? km*(use/hours) : 0);
+      t = new Date(t.getTime() + use*36e5);
+      left -= use;
+      if(left > 1e-9) splits++;
+    } else {
+      add(dayKey(t), kind, left, km||0);
+      t = new Date(t.getTime() + left*36e5);
+      left = 0;
+    }
+  }
+  return { end:t, split:splits>0 };
+}
+
+function computeSchedule(){
+  const S = state.settings;
+  const startM = hm(S.dayStart), endM = hm(S.dayEnd);
+  const windowed = startM!=null && endM!=null && endM > startM;
+  const days = new Map();
+  const add = (key, kind, h, km) => {
+    let d = days.get(key);
+    if(!d){ d = {key, driveH:0, actH:0, km:0}; days.set(key,d); }
+    d[kind] += h; d.km += (km||0);
+  };
+
+  let clock = parseLocal(state.start) || new Date();
+  const items = [];
+
+  state.route.forEach((wp, i) => {
+    const warn = [];
+    let leg = null;
+    if(i > 0){
+      leg = legFor(state.route[i-1], wp);
+      if(leg){
+        if(windowed && clock >= atMin(clock, endM)) clock = nextDay(clock, startM);
+        const r = spend(clock, leg.hours, "driveH", leg.km, add);
+        clock = r.end; leg.split = r.split;
+      } else {
+        warn.push("no coordinates — set km/h by hand");
+      }
+    }
+    let arrive = new Date(clock);
+    if(wp.arrive){
+      const ov = parseLocal(wp.arrive);
+      if(ov){
+        if(ov < arrive - 60000) warn.push("pinned earlier than travel allows");
+        arrive = ov;
+      }
+    }
+    clock = new Date(arrive);
+
+    const stay = stayHours(wp);
+    let depart = new Date(arrive), staySplit = false;
+    if(stay > 0){
+      const r = spend(clock, stay, "actH", 0, add);
+      depart = r.end; clock = r.end; staySplit = r.split;
+    }
+    if(wp.overnight){
+      depart = nextDay(depart, windowed ? startM : 0);
+      clock = new Date(depart);
+    }
+    items.push({ wp, leg, arrive, depart, stay, staySplit, warn, day:dayKey(arrive) });
+  });
+
+  const dayList = [...days.values()].sort((a,b)=>a.key<b.key?-1:1);
+  const totals = dayList.reduce((t,d)=>({ km:t.km+d.km, driveH:t.driveH+d.driveH, actH:t.actH+d.actH }),
+                                {km:0, driveH:0, actH:0});
+  totals.days = dayList.length;
+  totals.end = items.length ? items[items.length-1].depart : null;
+  return { items, days, dayList, totals };
+}
+
+/* --------------------------------------------------------------- render */
+
+let sched = null;
+
+function render(){
+  const t = document.getElementById("title"); if(document.activeElement!==t) t.value = state.title;
+  const st = document.getElementById("start"); if(document.activeElement!==st) st.value = state.start;
+  setIf("dayStart", state.settings.dayStart); setIf("dayEnd", state.settings.dayEnd);
+  setIf("avgSpeed", state.settings.avgSpeedKmh); setIf("roadFactor", state.settings.roadFactor);
+  setIf("stopBuffer", state.settings.stopBuffer);
+  document.getElementById("online").checked = !!state.settings.online;
+
+  sched = computeSchedule();
+  renderRoute(sched);
+  renderSandbox();
+  renderTotals(sched.totals);
+  document.getElementById("json").value = JSON.stringify(state, null, 2);
+  save();
+  ensureLegs();
+}
+function setIf(id, v){ const el = document.getElementById(id); if(document.activeElement!==el) el.value = v; }
+
+function renderRoute(s){
+  const box = document.getElementById("route");
+  box.innerHTML = "";
+  if(!state.route.length){
+    box.innerHTML = '<div class="empty">No stops yet. Type a place above — or drag one out of the sandbox.</div>';
+    return;
+  }
+  let lastDay = null, n = 0;
+  s.items.forEach((it, i) => {
+    if(it.day !== lastDay){
+      lastDay = it.day; n++;
+      const d = s.days.get(it.day) || {km:0, driveH:0, actH:0};
+      const h = document.createElement("div");
+      h.className = "dayhead";
+      h.innerHTML = `<span>Day ${n} · ${fmtDate(it.arrive)}</span>
+        <span class="sum">${fmtKm(d.km)} · drive ${fmtH(d.driveH)} · stops ${fmtH(d.actH)}</span>
+        <button class="ghost" data-act="map" data-day="${it.day}" title="Show this day on a map">🗺</button>`;
+      box.appendChild(h);
+    }
+    if(i > 0) box.appendChild(legRow(it, i));
+    box.appendChild(card(it.wp, "route", it));
+  });
+}
+
+function legRow(it, i){
+  const el = document.createElement("div");
+  el.className = "leg";
+  const leg = it.leg;
+  const srcTxt = leg ? ({manual:"manual", road:"road", est:"straight-line×factor"})[leg.src] : "unknown";
+  el.innerHTML = `<span class="line">↓</span>
+    <span><b>${leg ? fmtKm(leg.km) : "—"}</b> · <b>${leg ? fmtH(leg.hours) : "—"}</b>
+      <span class="badge grey">${srcTxt}</span>${leg && leg.split ? ' <span class="badge warn">overnight en route</span>' : ""}</span>
+    <span style="margin-left:auto">km <input type="number" step="1" min="0" data-leg="km" data-id="${it.wp.id}"
+      value="${it.wp.legKm ?? ""}" placeholder="${leg?Math.round(leg.km):""}">
+      h <input type="number" step="0.25" min="0" data-leg="h" data-id="${it.wp.id}"
+      value="${it.wp.legH ?? ""}" placeholder="${leg?(Math.round(leg.hours*100)/100):""}"></span>`;
+  return el;
+}
+
+function card(w, list, it){
+  const el = document.createElement("div");
+  el.className = "card";
+  el.draggable = true;
+  el.dataset.id = w.id; el.dataset.list = list;
+
+  const acts = (w.activities||[]).reduce((s,a)=>s+(num(a.hours)||0),0);
+  const coord = w.lat!=null
+    ? `<span class="badge grey" title="${R5(w.lat)}, ${R5(w.lon)}">📍</span>`
+    : `<button class="ghost" data-act="geocode" data-id="${w.id}" title="Look up coordinates">📍?</button>`;
+
+  let times = "";
+  if(list === "route"){
+    times = `<div class="times">
+      <span>arrive <b>${fmtClock(it.arrive)}</b></span>
+      ${it.stay>0 ? `<span>stay <b>${fmtH(it.stay)}</b></span>` : ""}
+      <span>leave <b>${fmtClock(it.depart)}</b></span>
+      ${it.wp.overnight ? '<span class="badge">🌙 overnight</span>' : ""}
+      ${it.staySplit ? '<span class="badge warn">spills into next day</span>' : ""}
+      ${it.warn.map(x=>`<span class="badge warn">${x}</span>`).join("")}
+      <span style="margin-left:auto">pin
+        <input type="datetime-local" data-act="arrive" data-id="${w.id}" value="${w.arrive||""}">
+        ${w.arrive ? `<button class="ghost" data-act="unpin" data-id="${w.id}" title="Clear pin">✕</button>` : ""}
+      </span>
+    </div>`;
+  } else {
+    times = `<div class="times"><span>plans <b>${fmtH(acts)}</b> · ${(w.activities||[]).length} item(s)</span></div>`;
+  }
+
+  el.innerHTML = `
+    <div class="top">
+      <span class="handle" title="Drag to reorder / move">⠿</span>
+      <span class="name" title="${(w.label||w.name).replace(/"/g,"&quot;")}">${w.name}</span>
+      ${coord}
+      ${list==="route" ? `<button class="ghost" data-act="up" data-id="${w.id}" title="Move up">↑</button>
+                          <button class="ghost" data-act="down" data-id="${w.id}" title="Move down">↓</button>
+                          <button class="ghost" data-act="night" data-id="${w.id}" title="Stay overnight here">${w.overnight?"🌙":"☾"}</button>
+                          <button class="ghost" data-act="tosandbox" data-id="${w.id}" title="Park in sandbox">→📦</button>`
+                       : `<button class="ghost" data-act="toroute" data-id="${w.id}" title="Add to route">＋route</button>`}
+      <button class="ghost" data-act="del" data-id="${w.id}" title="Delete">✕</button>
+    </div>
+    ${times}
+    <div class="acts" data-acts="${w.id}">
+      ${(w.activities||[]).map(a=>`
+        <div class="act">
+          <span>•</span>
+          <input class="t" data-act="acttitle" data-id="${w.id}" data-aid="${a.id}" value="${(a.title||"").replace(/"/g,"&quot;")}" placeholder="what to do">
+          <input class="h" type="number" step="0.25" min="0" data-act="acthours" data-id="${w.id}" data-aid="${a.id}" value="${a.hours}">
+          <span class="hint">h</span>
+          <button class="ghost" data-act="actdel" data-id="${w.id}" data-aid="${a.id}">✕</button>
+        </div>`).join("")}
+      <div class="act"><span>＋</span>
+        <input class="t" data-act="actnew" data-id="${w.id}" placeholder="add something to do here…">
+      </div>
+    </div>`;
+  return el;
+}
+
+function renderSandbox(){
+  const box = document.getElementById("sandbox");
+  box.innerHTML = "";
+  if(!state.sandbox.length){
+    box.innerHTML = '<div class="empty">Empty. Drop the “maybe” stops here.</div>';
+    return;
+  }
+  state.sandbox.forEach(w => box.appendChild(card(w, "sandbox", null)));
+}
+
+function renderTotals(t){
+  document.getElementById("totals").innerHTML = `
+    <span>total <b>${fmtKm(t.km)}</b></span>
+    <span>driving <b>${fmtH(t.driveH)}</b></span>
+    <span>at stops <b>${fmtH(t.actH)}</b></span>
+    <span>days <b>${t.days}</b></span>
+    <span>ends <b>${t.end ? fmtDate(t.end)+" "+fmtClock(t.end) : "—"}</b></span>`;
+}
+
+/* ---------------------------------------------------------------- edits */
+
+function find(id){
+  let i = state.route.findIndex(w=>w.id===id);
+  if(i>=0) return {w:state.route[i], list:state.route, i};
+  i = state.sandbox.findIndex(w=>w.id===id);
+  if(i>=0) return {w:state.sandbox[i], list:state.sandbox, i};
+  return null;
+}
+function move(id, toList, index){
+  const f = find(id); if(!f) return;
+  f.list.splice(f.i,1);
+  const dst = toList==="route" ? state.route : state.sandbox;
+  if(index==null || index>dst.length) index = dst.length;
+  dst.splice(index, 0, f.w);
+  render();
+}
+
+document.addEventListener("click", e => {
+  const b = e.target.closest("[data-act]");
+  if(!b || b.tagName === "INPUT") return;
+  const id = b.dataset.id, act = b.dataset.act;
+  if(act==="map"){ openMap(b.dataset.day); return; }
+  const f = find(id);
+  if(!f && act!=="geocode") return;
+
+  if(act==="del"){ f.list.splice(f.i,1); render(); }
+  else if(act==="tosandbox"){ move(id,"sandbox",null); }
+  else if(act==="toroute"){ move(id,"route",null); }
+  else if(act==="up" && f.i>0){ f.list.splice(f.i-1,0,f.list.splice(f.i,1)[0]); render(); }
+  else if(act==="down" && f.i<f.list.length-1){ f.list.splice(f.i+1,0,f.list.splice(f.i,1)[0]); render(); }
+  else if(act==="night"){ f.w.overnight = !f.w.overnight; render(); }
+  else if(act==="unpin"){ f.w.arrive = null; render(); }
+  else if(act==="actdel"){ f.w.activities = f.w.activities.filter(a=>a.id!==b.dataset.aid); render(); }
+  else if(act==="geocode"){ geocodeWaypoint(id); }
+});
+
+document.addEventListener("change", e => {
+  const el = e.target;
+  const id = el.dataset.id;
+
+  if(el.dataset.leg && id){
+    const f = find(id); if(!f) return;
+    const v = num(el.value);
+    if(el.dataset.leg==="km") f.w.legKm = (el.value.trim()==="" ? null : v);
+    else f.w.legH = (el.value.trim()==="" ? null : v);
+    render(); return;
+  }
+  const act = el.dataset.act;
+  if(act && id){
+    const f = find(id); if(!f) return;
+    if(act==="arrive"){ f.w.arrive = el.value || null; render(); }
+    else if(act==="acttitle"){
+      const a = f.w.activities.find(x=>x.id===el.dataset.aid);
+      if(a){ a.title = el.value; save(); }
+    }
+    else if(act==="acthours"){
+      const a = f.w.activities.find(x=>x.id===el.dataset.aid);
+      if(a){ a.hours = num(el.value)||0; render(); }
+    }
+    else if(act==="actnew"){
+      const v = el.value.trim();
+      if(v){ f.w.activities.push({id:uid(), title:v, hours:1}); render(); }
+    }
+    return;
+  }
+
+  switch(el.id){
+    case "title": state.title = el.value; save(); break;
+    case "start": state.start = el.value; render(); break;
+    case "dayStart": state.settings.dayStart = el.value; render(); break;
+    case "dayEnd": state.settings.dayEnd = el.value; render(); break;
+    case "avgSpeed": state.settings.avgSpeedKmh = num(el.value)||70; render(); break;
+    case "roadFactor": state.settings.roadFactor = num(el.value)||1.25; render(); break;
+    case "stopBuffer": state.settings.stopBuffer = num(el.value)||0; render(); break;
+    case "online": state.settings.online = el.checked; render(); break;
+  }
+});
+
+// Enter in the "add activity" box commits without leaving the field.
+document.addEventListener("keydown", e => {
+  if(e.key==="Enter" && e.target.dataset && e.target.dataset.act==="actnew"){
+    e.target.dispatchEvent(new Event("change", {bubbles:true}));
+    e.preventDefault();
+  }
+});
+
+/* ------------------------------------------------------------ drag/drop */
+
+let dragId = null;
+
+document.addEventListener("dragstart", e => {
+  const c = e.target.closest(".card"); if(!c) return;
+  dragId = c.dataset.id;
+  c.classList.add("dragging");
+  e.dataTransfer.effectAllowed = "move";
+  try{ e.dataTransfer.setData("text/plain", dragId); }catch(_){}
+});
+document.addEventListener("dragend", e => {
+  document.querySelectorAll(".dragging").forEach(x=>x.classList.remove("dragging"));
+  document.querySelectorAll(".drop").forEach(x=>x.classList.remove("drop"));
+  dragId = null;
+});
+["route","sandbox"].forEach(id => {
+  const box = document.getElementById(id);
+  box.addEventListener("dragover", e => { e.preventDefault(); e.dataTransfer.dropEffect="move"; box.classList.add("drop"); });
+  box.addEventListener("dragleave", e => { if(!box.contains(e.relatedTarget)) box.classList.remove("drop"); });
+  box.addEventListener("drop", e => {
+    e.preventDefault(); box.classList.remove("drop");
+    const id = dragId || e.dataTransfer.getData("text/plain");
+    if(!id) return;
+    move(id, box.dataset.list, dropIndex(box, e.clientY, id));
+  });
+});
+function dropIndex(box, y, dragging){
+  const cards = [...box.querySelectorAll(".card")].filter(c=>c.dataset.id!==dragging);
+  for(let i=0;i<cards.length;i++){
+    const r = cards[i].getBoundingClientRect();
+    if(y < r.top + r.height/2) return i;
+  }
+  return cards.length;
+}
+
+/* ------------------------------------------------ geocoding and routing */
+
+const NOMINATIM = "https://nominatim.openstreetmap.org/search";
+const OSRM = "https://router.project-osrm.org/route/v1/driving/";
+
+async function searchPlaces(q){
+  const url = NOMINATIM + "?format=jsonv2&limit=6&addressdetails=0&q=" + encodeURIComponent(q);
+  const r = await fetch(url, {headers:{"Accept":"application/json"}});
+  if(!r.ok) throw new Error("geocoder HTTP "+r.status);
+  return (await r.json()).map(x=>({
+    name: x.display_name.split(",")[0].trim(),
+    label: x.display_name,
+    lat: parseFloat(x.lat), lon: parseFloat(x.lon)
+  }));
+}
+
+async function geocodeWaypoint(id){
+  const f = find(id); if(!f) return;
+  if(!state.settings.online){ toast("Online lookups are off"); return; }
+  netBadge("geocoding…");
+  try{
+    const res = await searchPlaces(f.w.name);
+    if(!res.length){ netBadge("not found", true); return; }
+    f.w.lat = res[0].lat; f.w.lon = res[0].lon; f.w.label = res[0].label;
+    netBadge("ok"); render();
+  }catch(e){ netBadge("geocode failed", true); }
+}
+
+let legQueue = [], legBusy = false;
+
+function ensureLegs(){
+  if(!state.settings.online) return;
+  const want = [];
+  for(let i=1;i<state.route.length;i++){
+    const a = state.route[i-1], b = state.route[i];
+    if(b.legKm!=null || b.legH!=null) continue;
+    const k = legKey(a,b);
+    const c = k ? state.legCache[k] : null;
+    if(k && (!c || !c.p) && !legQueue.includes(k)){
+      want.push({k, a:{lat:a.lat,lon:a.lon}, b:{lat:b.lat,lon:b.lon}});
+    }
+  }
+  if(!want.length) return;
+  want.forEach(w=>{ legQueue.push(w.k); pending.set(w.k, w); });
+  drainLegs();
+}
+const pending = new Map();
+
+async function drainLegs(){
+  if(legBusy) return;
+  legBusy = true;
+  while(legQueue.length){
+    const k = legQueue.shift();
+    const job = pending.get(k); pending.delete(k);
+    if(!job || (state.legCache[k] && state.legCache[k].p)) continue;
+    netBadge("routing… ("+(legQueue.length+1)+")");
+    try{
+      const url = OSRM + job.a.lon+","+job.a.lat+";"+job.b.lon+","+job.b.lat
+                + "?overview=simplified&geometries=polyline&alternatives=false&steps=false";
+      const r = await fetch(url);
+      if(!r.ok) throw new Error("HTTP "+r.status);
+      const j = await r.json();
+      if(j.code!=="Ok" || !j.routes || !j.routes.length) throw new Error(j.code||"no route");
+      state.legCache[k] = { km: j.routes[0].distance/1000, h: j.routes[0].duration/3600,
+                            p: (typeof j.routes[0].geometry === "string" ? j.routes[0].geometry : null) };
+      netBadge("ok");
+    }catch(e){
+      netBadge("routing failed — using estimate", true);
+    }
+    await new Promise(r=>setTimeout(r, 250));
+  }
+  legBusy = false;
+  render();
+}
+
+/* -------------------------------------------------------------- add box */
+
+const addInput = document.getElementById("addName");
+const sugBox = document.getElementById("suggest");
+let sugItems = [], sugSel = -1, sugTimer = null;
+
+function hideSug(){ sugBox.hidden = true; sugItems = []; sugSel = -1; }
+
+function showSug(items){
+  sugItems = items; sugSel = -1;
+  sugBox.innerHTML = items.map((x,i)=>`<div data-i="${i}"><b>${x.name}</b><br><span class="hint">${x.label}</span></div>`).join("");
+  sugBox.hidden = !items.length;
+}
+sugBox.addEventListener("click", e => {
+  const d = e.target.closest("[data-i]"); if(!d) return;
+  pick(sugItems[+d.dataset.i]);
+});
+function pick(x){
+  state.route.push(newWp(x.name, x.lat, x.lon, x.label));
+  addInput.value = ""; hideSug(); render();
+}
+
+addInput.addEventListener("input", () => {
+  clearTimeout(sugTimer);
+  const q = addInput.value.trim();
+  if(q.length < 3 || !state.settings.online){ hideSug(); return; }
+  sugTimer = setTimeout(async () => {
+    try{ netBadge("searching…"); showSug(await searchPlaces(q)); netBadge("ok"); }
+    catch(e){ netBadge("search failed", true); hideSug(); }
+  }, 500);
+});
+addInput.addEventListener("keydown", e => {
+  if(!sugBox.hidden && (e.key==="ArrowDown"||e.key==="ArrowUp")){
+    e.preventDefault();
+    sugSel = Math.max(0, Math.min(sugItems.length-1, sugSel + (e.key==="ArrowDown"?1:-1)));
+    [...sugBox.children].forEach((c,i)=>c.classList.toggle("sel", i===sugSel));
+    return;
+  }
+  if(e.key==="Escape"){ hideSug(); return; }
+  if(e.key!=="Enter") return;
+  e.preventDefault();
+  if(sugSel>=0 && sugItems[sugSel]){ pick(sugItems[sugSel]); return; }
+  addManual(e.shiftKey);
+});
+document.getElementById("btnAdd").addEventListener("click", ()=>addManual(false));
+
+async function addManual(rawOnly){
+  const q = addInput.value.trim();
+  if(!q) return;
+  if(rawOnly || !state.settings.online){
+    state.route.push(newWp(q)); addInput.value=""; hideSug(); render(); return;
+  }
+  try{
+    netBadge("searching…");
+    const res = await searchPlaces(q);
+    netBadge("ok");
+    if(res.length===1) return pick(res[0]);
+    if(res.length){ showSug(res); return; }
+  }catch(e){ netBadge("search failed", true); }
+  state.route.push(newWp(q)); addInput.value=""; hideSug(); render();
+}
+document.addEventListener("click", e => { if(!e.target.closest(".addbar")) hideSug(); });
+
+/* ------------------------------------------------------------------ map */
+
+/** Everything the map tab needs: one entry per day, plus a whole-trip entry. */
+function mapDays(){
+  const s = sched || computeSchedule();
+  const R = state.route;
+
+  const geom = (a,b) => {
+    const k = legKey(a,b);
+    const c = k ? state.legCache[k] : null;
+    if(c && c.p) return { pts: decodePoly(c.p), road:true };
+    if(a.lat!=null && b.lat!=null) return { pts: [[a.lat,a.lon],[b.lat,b.lon]], road:false };
+    return null;
+  };
+  const stopOf = (i, from) => {
+    const it = s.items[i], w = it.wp;
+    return { n:i+1, name:w.name, label:w.label||"", lat:w.lat, lon:w.lon, from:!!from,
+             arrive: fmtDate(it.arrive)+" "+fmtClock(it.arrive),
+             depart: fmtClock(it.depart),
+             stay: it.stay>0 ? fmtH(it.stay) : "",
+             overnight: !!w.overnight,
+             acts: (w.activities||[]).map(a=>({t:a.title||"", h:num(a.hours)||0})) };
+  };
+  const groupOf = (idxs, tab, label, sum) => {
+    const first = idxs[0], last = idxs[idxs.length-1];
+    const stops = [];
+    if(first > 0) stops.push(stopOf(first-1, true));
+    idxs.forEach(i => stops.push(stopOf(i)));
+    const legs = [];
+    for(let i = Math.max(first,1); i <= last; i++){
+      const g = geom(R[i-1], R[i]);
+      if(g) legs.push(g);
+    }
+    const fixed = stops.filter(x=>x.lat!=null);
+    const gmaps = fixed.length>=2
+      ? "https://www.google.com/maps/dir/" + fixed.slice(0,10).map(x=>R5(x.lat)+","+R5(x.lon)).join("/")
+      : "";
+    return { tab, label, sum, stops, legs, gmaps };
+  };
+
+  let n = 0;
+  const days = s.dayList.map(d => {
+    n++;
+    const tab = "Day "+n;
+    const label = tab + " · " + fmtDate(parseLocal(d.key+"T12:00"));
+    const sum = fmtKm(d.km)+" · drive "+fmtH(d.driveH)+" · stops "+fmtH(d.actH);
+    let idxs = [];
+    s.items.forEach((it,i)=>{ if(it.day===d.key) idxs.push(i); });
+    if(!idxs.length){                       // a day spent entirely en route
+      const k = s.items.findIndex(it => it.day > d.key);
+      if(k > 0) idxs = [k];
+    }
+    return idxs.length ? groupOf(idxs, tab, label, sum)
+                       : { tab, label, sum, stops:[], legs:[], gmaps:"" };
+  });
+
+  if(s.items.length){
+    const t = s.totals;
+    days.push(groupOf(s.items.map((_,i)=>i), "Whole trip", (state.title||"Trip"),
+      fmtKm(t.km)+" · drive "+fmtH(t.driveH)+" · stops "+fmtH(t.actH)+" · "+t.days+" day(s)"));
+  }
+  return days;
+}
+
+function openMap(dayKey){
+  const days = mapDays();
+  if(!days.length){ toast("Nothing to map yet"); return; }
+  let sel = days.length - 1;                                   // whole trip by default
+  if(dayKey){
+    const i = sched.dayList.findIndex(d => d.key === dayKey);
+    if(i >= 0) sel = i;
+  }
+  const w = window.open("", "_blank");
+  if(!w){ toast("Popup blocked — allow popups for this page"); return; }
+  w.document.open();
+  w.document.write(mapHTML({ title: state.title||"Trip", days, sel }));
+  w.document.close();
+}
+
+function mapHTML(payload){
+  const data = JSON.stringify(payload).replace(/</g, "\\u003c");
+  return `<!doctype html><html><head><meta charset="utf-8">
+<title>${(payload.title||"Trip").replace(/[<>&]/g,"")} — map</title>
+<style>
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;overflow:hidden}
+body{font:13px/1.45 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+     display:flex;flex-direction:column;background:#0e1116;color:#e7e9ee}
+#bar{display:flex;gap:8px;align-items:center;flex-wrap:wrap;padding:7px 10px;
+     background:#171b22;border-bottom:1px solid #262c36;z-index:5}
+#bar b{font-size:14px}
+.tab{border:1px solid #2c333f;background:#12161c;color:#c9cfda;border-radius:999px;
+     padding:4px 11px;font:inherit;cursor:pointer}
+.tab.on{background:#2f6df6;border-color:#2f6df6;color:#fff;font-weight:600}
+.btn{border:1px solid #2c333f;background:#12161c;color:#c9cfda;border-radius:7px;
+     padding:4px 9px;font:inherit;cursor:pointer;text-decoration:none}
+.btn:hover,.tab:hover{border-color:#4b566b}
+.sum{color:#98a2b3;font-variant-numeric:tabular-nums}
+.grow{flex:1}
+#wrap{position:relative;flex:1;min-height:0}
+#map{position:absolute;inset:0;overflow:hidden;cursor:grab;background:#20242c}
+#map.grabbing{cursor:grabbing}
+#tiles img{position:absolute;width:256px;height:256px;user-select:none;-webkit-user-drag:none}
+#ov{position:absolute;inset:0;pointer-events:none}
+#ov .halo{fill:none;stroke:#0e1116;stroke-opacity:.55;stroke-width:9;stroke-linejoin:round;stroke-linecap:round}
+#ov .road{fill:none;stroke:#2f6df6;stroke-width:5;stroke-linejoin:round;stroke-linecap:round}
+#ov .air{fill:none;stroke:#e0912f;stroke-width:4;stroke-dasharray:9 7;stroke-linecap:round}
+#ov .pin circle{fill:#2f6df6;stroke:#fff;stroke-width:2.5}
+#ov .pin.from circle{fill:#7b8494}
+#ov .pin text{fill:#fff;font:700 12px sans-serif;text-anchor:middle}
+#ov .pin .lbl{fill:#0e1116;stroke:#fff;stroke-width:3.5;paint-order:stroke;
+              font:600 13px sans-serif;text-anchor:start}
+#side{position:absolute;top:10px;left:10px;width:270px;max-height:calc(100% - 20px);overflow:auto;
+      background:rgba(23,27,34,.94);border:1px solid #262c36;border-radius:10px;padding:8px 10px;
+      backdrop-filter:blur(3px)}
+#side.hide{display:none}
+.stop{padding:6px 4px;border-bottom:1px solid #232833;cursor:pointer;border-radius:6px}
+.stop:last-child{border-bottom:0}
+.stop:hover{background:#20262f}
+.stop .h{display:flex;gap:6px;align-items:baseline}
+.stop .num{display:inline-flex;width:20px;height:20px;border-radius:50%;background:#2f6df6;color:#fff;
+           align-items:center;justify-content:center;font-size:11px;font-weight:700;flex:none}
+.stop.from .num{background:#7b8494}
+.stop .nm{font-weight:600}
+.stop .t{color:#98a2b3;font-variant-numeric:tabular-nums;margin-left:auto;font-size:12px}
+.stop ul{margin:3px 0 0 26px;padding:0;list-style:none;color:#b6bdc9;font-size:12px}
+.attr{color:#7b8494;font-size:11px}
+.attr a{color:#7b8494}
+@media (prefers-color-scheme: light){
+  body{background:#f6f7f9;color:#12151a}
+  #bar{background:#fff;border-bottom-color:#e2e5ea}
+  .tab,.btn{background:#fff;border-color:#d5dae1;color:#39404b}
+  .tab.on{background:#2f6df6;border-color:#2f6df6;color:#fff}
+  #side{background:rgba(255,255,255,.94);border-color:#e2e5ea}
+  .stop{border-bottom-color:#eceef2}
+  .stop:hover{background:#f1f3f7}
+  .stop ul{color:#4c5561}
+  #ov .halo{stroke:#fff;stroke-opacity:.85}
+  #ov .pin .lbl{fill:#12151a}
+}
+</style></head><body>
+<div id="bar">
+  <b id="info"></b><span id="sum" class="sum"></span>
+  <span id="tabs" style="display:flex;gap:6px;flex-wrap:wrap"></span>
+  <span class="grow"></span>
+  <button class="btn" id="btnSide">☰ list</button>
+  <button class="btn" id="btnFit">⤢ fit</button>
+  <button class="btn" id="zin">＋</button><button class="btn" id="zout">－</button>
+  <a class="btn" id="gm" target="_blank" rel="noopener">Google Maps ↗</a>
+  <span class="attr">© <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a></span>
+</div>
+<div id="wrap"><div id="map"><div id="tiles"></div><svg id="ov"></svg></div><div id="side"></div></div>
+<script>window.__TRIP__ = ${data};(${mapApp.toString()})();<\/script>
+</body></html>`;
+}
+
+/** Runs inside the map tab. Raster OSM tiles + an SVG overlay, no libraries. */
+function mapApp(){
+  const D = window.__TRIP__, TILE = 256;
+  const $ = id => document.getElementById(id);
+  const map = $("map"), tiles = $("tiles"), ov = $("ov"), side = $("side");
+  let sel = D.sel|0, z = 6, cx = 0, cy = 0;
+
+  const esc = s => String(s==null?"":s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+
+  function project(lat, lon, zz){
+    const s = TILE * Math.pow(2, zz);
+    const sy = Math.max(-0.9999, Math.min(0.9999, Math.sin(lat*Math.PI/180)));
+    return [ (lon+180)/360*s, (0.5 - Math.log((1+sy)/(1-sy))/(4*Math.PI))*s ];
+  }
+  function unproject(x, y, zz){
+    const s = TILE * Math.pow(2, zz);
+    const n = Math.PI - 2*Math.PI*y/s;
+    return [ 180/Math.PI*Math.atan(0.5*(Math.exp(n)-Math.exp(-n))), x/s*360-180 ];
+  }
+
+  const day = () => D.days[sel];
+  function allPoints(){
+    const p = [];
+    day().legs.forEach(l => l.pts.forEach(q => p.push(q)));
+    day().stops.forEach(s => { if(s.lat!=null) p.push([s.lat, s.lon]); });
+    return p;
+  }
+  function fit(){
+    const P = allPoints(), W = map.clientWidth, H = map.clientHeight;
+    if(!P.length){ z = 4; const c = project(49, 20, z); cx=c[0]; cy=c[1]; return; }
+    let n=90, s=-90, w=180, e=-180;
+    P.forEach(q => { n=Math.min(n,q[0]); s=Math.max(s,q[0]); w=Math.min(w,q[1]); e=Math.max(e,q[1]); });
+    const padX = Math.max(120, W*0.18), padY = 80;
+    const top = (Math.abs(s-n) < 1e-4 && Math.abs(e-w) < 1e-4) ? 12 : 18;   // single point: don't slam to z18
+    z = 3;
+    for(let zz=top; zz>=2; zz--){
+      const a = project(s, w, zz), b = project(n, e, zz);
+      if(Math.abs(b[0]-a[0]) < W-padX && Math.abs(a[1]-b[1]) < H-padY){ z = zz; break; }
+    }
+    const a = project(s, w, z), b = project(n, e, z);
+    cx = (a[0]+b[0])/2; cy = (a[1]+b[1])/2;
+  }
+
+  const imgs = new Map();
+  function draw(){
+    const W = map.clientWidth, H = map.clientHeight;
+    const ox = cx - W/2, oy = cy - H/2, n = Math.pow(2, z);
+    const x0 = Math.floor(ox/TILE), x1 = Math.floor((ox+W)/TILE);
+    const y0 = Math.max(0, Math.floor(oy/TILE)), y1 = Math.min(n-1, Math.floor((oy+H)/TILE));
+    const live = new Set();
+    for(let ty=y0; ty<=y1; ty++) for(let tx=x0; tx<=x1; tx++){
+      const wx = ((tx % n) + n) % n, key = z+"/"+wx+"/"+ty+"@"+tx;
+      live.add(key);
+      let img = imgs.get(key);
+      if(!img){
+        img = new Image();
+        img.alt = ""; img.decoding = "async";
+        img.src = "https://tile.openstreetmap.org/"+z+"/"+wx+"/"+ty+".png";
+        imgs.set(key, img); tiles.appendChild(img);
+      }
+      img.style.left = (tx*TILE - ox)+"px";
+      img.style.top  = (ty*TILE - oy)+"px";
+      img.style.display = "block";
+    }
+    imgs.forEach((img,key) => { if(!live.has(key)) img.style.display = "none"; });
+    if(imgs.size > 500) imgs.forEach((img,key) => {
+      if(!live.has(key)){ img.remove(); imgs.delete(key); }
+    });
+    overlay(ox, oy, W, H);
+  }
+
+  function overlay(ox, oy, W, H){
+    ov.setAttribute("width", W); ov.setAttribute("height", H);
+    ov.setAttribute("viewBox", "0 0 "+W+" "+H);
+    let s = "";
+    day().legs.forEach(l => {
+      const d = l.pts.map(q => { const p = project(q[0],q[1],z);
+        return (p[0]-ox).toFixed(1)+","+(p[1]-oy).toFixed(1); }).join(" ");
+      if(!d) return;
+      s += '<polyline class="halo" points="'+d+'"/>';
+      s += '<polyline class="'+(l.road?"road":"air")+'" points="'+d+'"/>';
+    });
+    day().stops.forEach(st => {
+      if(st.lat==null) return;
+      const p = project(st.lat, st.lon, z), x = p[0]-ox, y = p[1]-oy;
+      if(x < -200 || y < -200 || x > W+200 || y > H+200) return;
+      s += '<g class="pin'+(st.from?" from":"")+'" transform="translate('+x.toFixed(1)+','+y.toFixed(1)+')">'
+         + '<circle r="13"/><text y="4">'+st.n+'</text>'
+         + '<text class="lbl" x="18" y="5">'+esc(st.name)+'</text></g>';
+    });
+    ov.innerHTML = s;
+  }
+
+  function chrome(){
+    const d = day();
+    $("info").textContent = d.label;
+    $("sum").textContent = d.sum;
+    $("tabs").innerHTML = D.days.map((x,i) =>
+      '<button class="tab'+(i===sel?" on":"")+'" data-i="'+i+'">'+esc(x.tab)+'</button>').join("");
+    const gm = $("gm");
+    gm.href = d.gmaps || "#"; gm.style.display = d.gmaps ? "" : "none";
+    document.title = D.title + " — " + d.tab;
+    side.innerHTML = d.stops.length
+      ? d.stops.map((st,i) => '<div class="stop'+(st.from?" from":"")+'" data-s="'+i+'">'
+          + '<div class="h"><span class="num">'+st.n+'</span><span class="nm">'+esc(st.name)+'</span>'
+          + '<span class="t">'+esc(st.from ? "from" : st.arrive.split(" ").slice(-1)[0])+'</span></div>'
+          + (st.lat==null ? '<div class="t" style="margin-left:26px">no coordinates</div>' : "")
+          + (st.stay ? '<div class="t" style="margin-left:26px">stay '+esc(st.stay)+' · leave '+esc(st.depart)
+                        +(st.overnight?" · 🌙":"")+'</div>' : "")
+          + (st.acts.length ? "<ul>"+st.acts.map(a=>"<li>• "+esc(a.t)+" <span class=\"t\">"+a.h+"h</span></li>").join("")+"</ul>" : "")
+          + "</div>").join("")
+      : '<div class="stop">On the road all day — no stop reached.</div>';
+  }
+
+  $("tabs").addEventListener("click", e => {
+    const b = e.target.closest("[data-i]"); if(!b) return;
+    sel = +b.dataset.i; chrome(); fit(); draw();
+  });
+  side.addEventListener("click", e => {
+    const b = e.target.closest("[data-s]"); if(!b) return;
+    const st = day().stops[+b.dataset.s];
+    if(st.lat==null) return;
+    if(z < 11) z = 11;
+    const p = project(st.lat, st.lon, z); cx = p[0]; cy = p[1]; draw();
+  });
+  $("btnFit").addEventListener("click", () => { fit(); draw(); });
+  $("btnSide").addEventListener("click", () => side.classList.toggle("hide"));
+  $("zin").addEventListener("click", () => zoomBy(1));
+  $("zout").addEventListener("click", () => zoomBy(-1));
+
+  function zoomBy(dz, mx, my){
+    const W = map.clientWidth, H = map.clientHeight;
+    if(mx==null){ mx = W/2; my = H/2; }
+    const ox = cx - W/2, oy = cy - H/2;
+    const ll = unproject(ox+mx, oy+my, z);
+    const nz = Math.max(2, Math.min(18, z + dz));
+    if(nz === z) return;
+    z = nz;
+    const p = project(ll[0], ll[1], z);
+    cx = p[0] + (W/2 - mx); cy = p[1] + (H/2 - my);
+    draw();
+  }
+  map.addEventListener("wheel", e => {
+    e.preventDefault();
+    const r = map.getBoundingClientRect();
+    zoomBy(e.deltaY < 0 ? 1 : -1, e.clientX-r.left, e.clientY-r.top);
+  }, {passive:false});
+  map.addEventListener("dblclick", e => {
+    const r = map.getBoundingClientRect();
+    zoomBy(1, e.clientX-r.left, e.clientY-r.top);
+  });
+
+  let drag = null;
+  map.addEventListener("mousedown", e => {
+    drag = {x:e.clientX, y:e.clientY, cx, cy}; map.classList.add("grabbing"); e.preventDefault();
+  });
+  window.addEventListener("mousemove", e => {
+    if(!drag) return;
+    cx = drag.cx - (e.clientX-drag.x); cy = drag.cy - (e.clientY-drag.y); draw();
+  });
+  window.addEventListener("mouseup", () => { drag = null; map.classList.remove("grabbing"); });
+  window.addEventListener("resize", draw);
+  window.addEventListener("keydown", e => {
+    if(e.key==="ArrowRight" && sel < D.days.length-1){ sel++; chrome(); fit(); draw(); }
+    else if(e.key==="ArrowLeft" && sel > 0){ sel--; chrome(); fit(); draw(); }
+    else if(e.key==="+" || e.key==="=") zoomBy(1);
+    else if(e.key==="-") zoomBy(-1);
+    else if(e.key==="f") { fit(); draw(); }
+  });
+
+  chrome(); fit(); draw();
+}
+
+/* ----------------------------------------------------------------- data */
+
+document.getElementById("btnMap").addEventListener("click", () => openMap(null));
+document.getElementById("btnData").addEventListener("click", () => {
+  const d = document.getElementById("dataPanel");
+  d.open = true; d.scrollIntoView({behavior:"smooth", block:"nearest"});
+  document.getElementById("json").select();
+});
+document.getElementById("btnCopy").addEventListener("click", async () => {
+  const ta = document.getElementById("json");
+  try{ await navigator.clipboard.writeText(ta.value); toast("JSON copied"); }
+  catch(e){ ta.select(); document.execCommand("copy"); toast("JSON copied"); }
+});
+document.getElementById("btnDownload").addEventListener("click", () => {
+  const blob = new Blob([JSON.stringify(state,null,2)], {type:"application/json"});
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = (state.title||"trip").replace(/[^\w\-]+/g,"_").toLowerCase() + ".json";
+  a.click(); URL.revokeObjectURL(a.href);
+});
+document.getElementById("btnLoad").addEventListener("click", () => {
+  try{
+    state = migrate(JSON.parse(document.getElementById("json").value));
+    render(); toast("Loaded");
+  }catch(e){ toast("Bad JSON: "+e.message); }
+});
+document.getElementById("btnNew").addEventListener("click", () => {
+  if(!confirm("Discard the current trip and start empty?")) return;
+  state = blank(); render();
+});
+
+render();
+</script>
+</body>
+</html>
