@@ -1,8 +1,6 @@
-# OS
-Thumbs.db
-desktop.ini
+node_modules
+dist
 .DS_Store
-
-# Editors
-.vscode/
-.idea/
+*.local
+.vscode/*
+!.vscode/extensions.json

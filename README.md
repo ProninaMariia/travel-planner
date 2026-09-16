@@ -1,64 +1,52 @@
-# Travel Planner
+# Travel Planner — v2 (in progress)
 
-A single-file trip planner: build a route, give each stop a list of things to do,
-and see when you actually arrive, when you leave, and where each day ends.
+Rewrite of the planner around a new data model. The deployed v1 lives in
+`../travel-planner` and is untouched until this replaces it.
 
-Everything runs in the browser — no build step, no server, no account.
-
-## Live demo
-
-- [Demo](https://proninamariia.github.io/travel-planner/)
-
-## What it does
-
-- **Route** — add stops by name; the planner looks the place up and keeps its coordinates.
-- **Schedule** — activities take time, driving takes time, and the planner spreads all of it
-  across days, respecting the hours you are willing to be on the road.
-- **Day breakdown** — every day gets a header with its distance, driving time and time at stops.
-- **Sandbox** — a parking area for "maybe, if there's time" stops. Drag them in and out of the
-  route; parked stops never count toward the totals.
-- **Map** — opens in its own tab: one view per day plus the whole trip, real road geometry where
-  it is available, and a link out to Google Maps.
-- **Manual overrides** — pin an arrival time, mark an overnight stay, or type the distance and
-  duration of any leg by hand.
-
-## How distances are calculated
-
-Three sources, in order of priority:
-
-1. **Manual** — whatever you type into the km / h fields of a leg beats everything else.
-2. **Road** — with online lookups enabled, the route comes from OSRM and is cached.
-3. **Estimate** — straight-line distance x road factor / average speed. Used when a stop has no
-   coordinates or the routing service is unreachable.
-
-The badge on each leg shows which of the three is in use.
-
-## Data
-
-Trips are autosaved to `localStorage` in the browser that created them. There is no server and no
-sync, so to move a trip to another machine use **Data / JSON** — copy or download it there, and
-paste it back here.
-
-Clearing the browser's site data deletes the trip, so export it first if it matters.
-
-## Running locally
+## Running
 
 ```bash
-git clone https://github.com/ProninaMariia/travel-planner.git
-cd travel-planner
+npm install
+npm run dev     # the app
+npm test        # the scheduler's own tests, no install needed
 ```
 
-Then open `index.html` in a browser. There is nothing to install.
+## The model
 
-Place search, road distances and map tiles need a connection. Switch **online lookups** off in
-Settings to work entirely offline: stops are then added exactly as typed and every distance falls
-back to an estimate.
+A trip has a **mode**, picked on the first screen: `car` or `transit`.
+The mode is what the first screen asks about, and asking it is also what tells a
+first-time visitor what the app is for.
 
-## Built with
+A leg is two different shapes, not one shape with optional fields:
 
-- Plain HTML, CSS and JavaScript — no frameworks, no dependencies
-- [Nominatim](https://nominatim.openstreetmap.org) for place search
-- [OSRM](https://project-osrm.org) for road distances
-- OpenStreetMap raster tiles, drawn on a hand-rolled pan/zoom map with an SVG overlay
+- `car` — distance and minutes, from the router, an estimate, or typed by hand.
+- `transit` — departure and arrival from a timetable. **No `km` field exists**,
+  so kilometres cannot leak into a public-transport trip.
 
-Map data © [OpenStreetMap](https://www.openstreetmap.org/copyright) contributors.
+Durations are **minutes** everywhere. `formatMinutes` is the only place they
+become `1h30`, so decimal hours like `0.75` cannot appear.
+
+Free time is derived, never stored: the gap between finishing at a stop and the
+next departure. Negative means the traveller misses the connection, and it is
+flagged.
+
+## Layout
+
+```
+src/
+  types.ts       the model
+  time.ts        local-time helpers and the one formatter
+  schedule.ts    computeSchedule(trip) — pure, tested
+  storage.ts     localStorage + a blank trip
+  places.ts      Nominatim search and OSRM road legs
+  App.tsx        the shell
+  components/    ModePicker, StopCard, LegRow
+tests/
+  schedule.test.ts
+```
+
+## Not here yet
+
+The map, the sandbox for "maybe" stops, and JSON import/export. They were left
+out of this milestone on purpose: the point of it is that the model and the
+schedule are right before any of that is built on them.
