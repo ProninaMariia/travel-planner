@@ -135,8 +135,9 @@ export function App() {
   let dayNumber = 0;
 
   return (
-    <div className="app">
-      <header className="app__head">
+    <>
+      <header className="band band--top">
+        <div className="band__inner">
         <input
           className="app__title"
           value={trip.title}
@@ -170,8 +171,10 @@ export function App() {
         >
           Нова поїздка
         </button>
+        </div>
       </header>
 
+      <div className="app">
       <div className="addbar">
         <input
           value={query}
@@ -245,15 +248,18 @@ export function App() {
           return rows;
         })}
       </div>
+      </div>
 
       {trip.stops.length > 0 && (
-        <footer className="totals">
-          {trip.mode === 'car' && <span>усього <b>{Math.round(totals.km)} км</b></span>}
-          <span>у дорозі <b>{formatMinutes(totals.travelMinutes)}</b></span>
-          <span>на зупинках <b>{formatMinutes(totals.activityMinutes)}</b></span>
-          <span>днів <b>{totals.days}</b></span>
+        <footer className="band band--bottom">
+          <div className="band__inner totals">
+            {trip.mode === 'car' && <span>усього <b>{Math.round(totals.km)} км</b></span>}
+            <span>у дорозі <b>{formatMinutes(totals.travelMinutes)}</b></span>
+            <span>на зупинках <b>{formatMinutes(totals.activityMinutes)}</b></span>
+            <span>днів <b>{totals.days}</b></span>
+          </div>
         </footer>
       )}
-    </div>
+    </>
   );
 }

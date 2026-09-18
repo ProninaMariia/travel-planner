@@ -6,13 +6,18 @@ import type { TripMode } from '../types.ts';
  */
 export function ModePicker({ onPick }: { onPick: (mode: TripMode) => void }) {
   return (
-    <div className="picker">
-      <h1>Плануєте поїздку?</h1>
-      <p className="lead">
-        Складіть список місць, скажіть, скільки хочете провести в кожному —
-        і побачите, чи вкладається все у ваші дні.
-      </p>
+    <div className="screen--picker">
+      <header className="band band--hero">
+        <div className="band__inner">
+          <h1>Плануєте поїздку?</h1>
+          <p className="lead">
+            Складіть список місць, скажіть, скільки хочете провести в кожному —
+            і побачите, чи вкладається все у ваші дні.
+          </p>
+        </div>
+      </header>
 
+      <div className="picker">
       <p className="question">Як ви подорожуєте?</p>
 
       <div className="choices">
@@ -25,6 +30,7 @@ export function ModePicker({ onPick }: { onPick: (mode: TripMode) => void }) {
           <span className="choice__title">Громадським транспортом</span>
           <span className="choice__hint">Поїзди, автобуси, літаки — за розкладом</span>
         </button>
+      </div>
       </div>
     </div>
   );
