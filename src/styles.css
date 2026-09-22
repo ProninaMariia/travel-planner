@@ -50,7 +50,7 @@ body {
   background-position: center top;
   background-attachment: fixed;
   color: var(--ink);
-  font: 15px/1.5 ui-sans-serif, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  font: 16px/1.55 ui-sans-serif, -apple-system, 'Segoe UI', Roboto, sans-serif;
 }
 
 input, select, button { font: inherit; color: inherit; }
@@ -77,7 +77,7 @@ button:disabled { opacity: 0.5; cursor: default; }
 .ghost:hover { color: var(--ink); border-color: var(--line); }
 .ghost--on { color: var(--accent); }
 
-.hint { color: var(--muted); font-size: 13px; }
+.hint { color: var(--muted); font-size: 14px; }
 .grow { flex: 1; }
 
 .badge {
@@ -104,9 +104,9 @@ button:disabled { opacity: 0.5; cursor: default; }
   flex-wrap: wrap;
   gap: 10px;
   align-items: center;
-  max-width: 780px;
+  max-width: 1040px;
   margin: 0 auto;
-  padding: 14px 16px;
+  padding: 16px 20px;
 }
 
 .band--bottom { padding-bottom: 14px; }
@@ -155,8 +155,8 @@ button:disabled { opacity: 0.5; cursor: default; }
   text-align: center;
 }
 
-.band--hero h1 { font-size: 32px; margin: 0 0 12px; }
-.band--hero .lead { color: var(--on-scene); margin: 0 auto; max-width: 460px; }
+.band--hero h1 { font-size: 38px; margin: 0 0 12px; }
+.band--hero .lead { color: var(--on-scene); margin: 0 auto; max-width: 520px; font-size: 17px; }
 
 /* ---------------------------------------------------------- mode picker */
 
@@ -164,7 +164,7 @@ button:disabled { opacity: 0.5; cursor: default; }
 .screen--picker { min-height: 100vh; }
 
 .picker {
-  max-width: 560px;
+  max-width: 640px;
   margin: 36px auto;
   padding: 0 20px;
   text-align: center;
@@ -189,12 +189,42 @@ button:disabled { opacity: 0.5; cursor: default; }
 .choice__title { font-weight: 600; }
 .choice__hint { color: var(--muted); font-size: 13px; }
 
+/* ----------------------------------------------------------------- map */
+
+.mapbox { margin: 0 0 16px; }
+.mapbox__toggle { padding-left: 0; }
+.mapbox__hint { margin: 6px 2px 0; }
+
+.map {
+  height: 400px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  overflow: hidden;
+  /* Leaflet's own panes sit above the suggestion list without this. */
+  z-index: 0;
+}
+
+/* The numbered pin, drawn in CSS so no marker image is bundled. */
+.pin {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: var(--accent);
+  color: #fff;
+  font-size: 12px;
+  font-weight: 600;
+  box-shadow: 0 1px 4px rgba(10, 12, 28, 0.45);
+}
+
 /* ----------------------------------------------------------------- app */
 
 .app {
-  max-width: 780px;
+  max-width: 1040px;
   margin: 20px auto 0;
-  padding: 20px;
+  padding: 24px;
   background: var(--panel);
   border-radius: 14px;
   box-shadow: 0 6px 20px rgba(28, 42, 78, 0.14);
@@ -267,8 +297,34 @@ button:disabled { opacity: 0.5; cursor: default; }
   margin: 8px 0;
 }
 
+/* A new card glows once, then settles into the list like any other. */
+.card--new { animation: card-arrives 1.8s ease-out; }
+
+@keyframes card-arrives {
+  from { box-shadow: 0 0 0 3px var(--accent); }
+  to { box-shadow: 0 0 0 3px rgba(0, 0, 0, 0); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .card--new { animation: none; box-shadow: 0 0 0 2px var(--accent); }
+}
+
 .card__top { display: flex; align-items: center; gap: 8px; }
-.card__top h3 { flex: 1; margin: 0; font-size: 16px; }
+
+/* The name is a field, not a heading: a place picked on the map gets whatever
+   the geocoder calls it, and that is not always what the traveller calls it. */
+.card__name {
+  flex: 1 1 120px;
+  min-width: 0;
+  font-size: 17px;
+  font-weight: 600;
+  background: none;
+  border-color: transparent;
+  padding: 3px 6px;
+}
+
+.card__name:hover { border-color: var(--line); }
+.card__name:focus { background: var(--field); border-color: var(--line); }
 
 .times {
   display: flex;
@@ -320,6 +376,7 @@ button:disabled { opacity: 0.5; cursor: default; }
 .totals b { color: var(--ink); }
 
 @media (max-width: 560px) {
+  .map { height: 240px; }
   .leg__manual { margin-left: 0; }
   .dayhead__sum { margin-left: 0; width: 100%; }
   .band--hero h1 { font-size: 26px; }

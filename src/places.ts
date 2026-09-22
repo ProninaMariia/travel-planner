@@ -1,6 +1,7 @@
 /** Place search and road distances. Both services are public and need no key. */
 
 const NOMINATIM = 'https://nominatim.openstreetmap.org/search';
+const NOMINATIM_REVERSE = 'https://nominatim.openstreetmap.org/reverse';
 const OSRM = 'https://router.project-osrm.org/route/v1/driving/';
 
 export interface Place {
@@ -27,7 +28,58 @@ export async function searchPlaces(query: string, acceptLanguage = 'uk,en'): Pro
   }));
 }
 
+/**
+ * What is at this point?
+ *
+ * Nominatim answers with whatever object covers the coordinates, and in the
+ * countryside that is an administrative unit — "Судилківська сільська
+ * громада" — which is technically right and useless to a traveller. So we
+ * read the address instead and take the most settlement-like part of it:
+ * a city first, then a town, then a village. The administrative unit is a
+ * last resort, not a first answer.
+ */
+const SETTLEMENT_KEYS = [
+  'city', 'town', 'village', 'hamlet', 'borough', 'suburb',
+  'municipality', 'county', 'state',
+] as const;
+
+interface ReverseAnswer {
+  display_name?: string;
+  name?: string;
+  address?: Record<string, string>;
+}
+
+function settlementName(row: ReverseAnswer): string | null {
+  const address = row.address ?? {};
+  for (const key of SETTLEMENT_KEYS) {
+    const value = address[key];
+    if (value) return value;
+  }
+  return row.name?.trim() || row.display_name?.split(',')[0].trim() || null;
+}
+
+export async function reverseGeocode(
+  lat: number, lon: number, acceptLanguage = 'uk,en',
+): Promise<Place | null> {
+  const url = `${NOMINATIM_REVERSE}?format=jsonv2&zoom=12&addressdetails=1`
+    + `&accept-language=${encodeURIComponent(acceptLanguage)}`
+    + `&lat=${lat}&lon=${lon}`;
+  try {
+    const res = await fetch(url, { headers: { Accept: 'application/json' } });
+    if (!res.ok) return null;
+    const row = (await res.json()) as ReverseAnswer;
+    const name = settlementName(row);
+    if (!name) return null;
+    return { name, label: row.display_name ?? name, lat, lon };
+  } catch {
+    return null;
+  }
+}
+
 export interface RoadLeg { km: number; minutes: number }
+
+/** [lat, lon] pairs along the road, for drawing. Never stored in the trip. */
+export type Shape = Array<[number, number]>;
 
 /** Straight line across the globe, in kilometres. */
 export function haversineKm(a: { lat: number; lon: number }, b: { lat: number; lon: number }): number {
@@ -43,15 +95,28 @@ export function haversineKm(a: { lat: number; lon: number }, b: { lat: number; l
 export async function roadLeg(
   a: { lat: number; lon: number },
   b: { lat: number; lon: number },
-): Promise<RoadLeg> {
-  const url = `${OSRM}${a.lon},${a.lat};${b.lon},${b.lat}?overview=false&alternatives=false&steps=false`;
+): Promise<RoadLeg & { shape: Shape }> {
+  // `overview=simplified` returns the road's shape with far fewer points than
+  // the full geometry — enough to draw, small enough not to slow the map down.
+  const url = `${OSRM}${a.lon},${a.lat};${b.lon},${b.lat}`
+    + '?overview=simplified&geometries=geojson&alternatives=false&steps=false';
   const res = await fetch(url);
   if (!res.ok) throw new Error(`router HTTP ${res.status}`);
-  const data = await res.json() as { code: string; routes?: Array<{ distance: number; duration: number }> };
+  const data = await res.json() as {
+    code: string;
+    routes?: Array<{
+      distance: number;
+      duration: number;
+      geometry?: { coordinates: Array<[number, number]> };
+    }>;
+  };
   if (data.code !== 'Ok' || !data.routes?.length) throw new Error(data.code || 'no route');
+  const route = data.routes[0];
   return {
-    km: data.routes[0].distance / 1000,
-    minutes: Math.round(data.routes[0].duration / 60),
+    km: route.distance / 1000,
+    minutes: Math.round(route.duration / 60),
+    // GeoJSON is [lon, lat]; every map library here wants [lat, lon].
+    shape: (route.geometry?.coordinates ?? []).map(([lon, lat]) => [lat, lon] as [number, number]),
   };
 }
 

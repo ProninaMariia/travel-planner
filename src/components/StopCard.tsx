@@ -19,11 +19,13 @@ interface Props {
   scheduled: ScheduledStop;
   /** The first stop is where the trip begins — it is departed from, not arrived at. */
   isFirst: boolean;
+  /** Just added: worth a moment of attention. */
+  isNew: boolean;
   onChange: (stop: Stop) => void;
   onRemove: () => void;
 }
 
-export function StopCard({ stop, scheduled, isFirst, onChange, onRemove }: Props) {
+export function StopCard({ stop, scheduled, isFirst, isNew, onChange, onRemove }: Props) {
   const [draft, setDraft] = useState('');
 
   /**
@@ -50,9 +52,14 @@ export function StopCard({ stop, scheduled, isFirst, onChange, onRemove }: Props
   const free = scheduled.freeMinutes;
 
   return (
-    <article className="card">
+    <article className={isNew ? 'card card--new' : 'card'} id={`stop-${stop.id}`}>
       <header className="card__top">
-        <h3>{stop.name}</h3>
+        <input
+          className="card__name"
+          value={stop.name}
+          aria-label="Назва зупинки"
+          onChange={e => onChange({ ...stop, name: e.target.value, renamed: true })}
+        />
         {isFirst && <span className="badge badge--start">звідки вирушаємо</span>}
 
         <button

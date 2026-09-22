@@ -36,6 +36,11 @@ export type Leg =
 export interface Stop {
   id: string;
   name: string;
+  /**
+   * The traveller typed this name themselves, so the map must not overwrite it
+   * when the pin moves. Absent on stops that still carry the geocoder's name.
+   */
+  renamed?: boolean;
   lat: number | null;
   lon: number | null;
   label: string;
