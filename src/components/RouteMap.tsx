@@ -76,8 +76,11 @@ export function RouteMap({ stops, shapes, onMove, onAdd }: Props) {
 
     const placed = stops.filter(s => s.lat != null && s.lon != null);
 
-    placed.forEach((stop, i) => {
-      const marker = L.marker([stop.lat as number, stop.lon as number], {
+    // Number pins by position in the route, so pin 3 is card 3 even when an
+    // earlier stop has no place on the map.
+    stops.forEach((stop, i) => {
+      if (stop.lat == null || stop.lon == null) return;
+      const marker = L.marker([stop.lat, stop.lon], {
         icon: pin(i + 1),
         draggable: true,
         autoPan: true,

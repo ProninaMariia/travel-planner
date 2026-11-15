@@ -1,14 +1,14 @@
 # Travel Planner — v2 (in progress)
 
-Rewrite of the planner around a new data model. The deployed v1 lives in
-`../travel-planner` and is untouched until this replaces it.
+Trip planner: route, per-stop activities and a day-by-day schedule that
+respects the traveller's day and the curfew.
 
 ## Running
 
 ```bash
 npm install
 npm run dev     # the app
-npm test        # the scheduler's own tests, no install needed
+npm test        # the scheduler's own tests (Kyiv time), no install needed
 ```
 
 ## The model
@@ -30,23 +30,43 @@ Free time is derived, never stored: the gap between finishing at a stop and the
 next departure. Negative means the traveller misses the connection, and it is
 flagged.
 
+## How the schedule is computed
+
+- **My day** (`dayStart`..`dayEnd`, editable in the header): nothing is planned
+  before `dayStart`; the car does not drive after `dayEnd`.
+- **Curfew**: no driving, and no arriving by car, during the curfew of either
+  end of a leg. Activities stop at the curfew. A train that arrives or leaves
+  during curfew is kept as timetabled and flagged — the ticket works as a pass.
+- **Activities are never cut in two.** One that does not fit before the night
+  moves whole to the next morning.
+- **Overnight** means one night: leave the morning after arriving. When the
+  next drive does not fit in what is left of today, the traveller stays the
+  night anyway and the card says why. Only a drive longer than a whole day is
+  split on the road, and that is flagged.
+- **Days** are calendar days from the start to the end, quiet ones included.
+
+Curfew hours live in `src/curfew.ts`, keyed by the ISO 3166-2 region code the
+geocoder returns. There is no official feed, so the table carries the date it
+was checked, and each stop's hours can be corrected by hand.
+
 ## Layout
 
 ```
 src/
   types.ts       the model
   time.ts        local-time helpers and the one formatter
+  windows.ts     allowed hours (day window minus curfew) and walking time through them
+  curfew.ts      curfew table by region, and per-stop overrides
   schedule.ts    computeSchedule(trip) — pure, tested
   storage.ts     localStorage + a blank trip
   places.ts      Nominatim search and OSRM road legs
   App.tsx        the shell
-  components/    ModePicker, StopCard, LegRow
+  components/    ModePicker, StopCard, LegRow, RouteMap
 tests/
   schedule.test.ts
 ```
 
 ## Not here yet
 
-The map, the sandbox for "maybe" stops, and JSON import/export. They were left
-out of this milestone on purpose: the point of it is that the model and the
-schedule are right before any of that is built on them.
+The sandbox for "maybe" stops, JSON import/export, curfews of regions a leg
+only passes through, and time zones for international legs.

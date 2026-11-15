@@ -13,10 +13,19 @@ export interface Activity {
   minutes: number;
 }
 
-/** Arrival is computed unless the traveller pinned it. */
-export type Arrival =
-  | { kind: 'auto' }
-  | { kind: 'pinned'; at: string };
+/** Curfew hours, local wall clock 'HH:mm'. `start` > `end` means it runs past midnight. */
+export interface Curfew {
+  start: string;
+  end: string;
+}
+
+/**
+ * The traveller's own correction to the curfew table, which goes out of date
+ * and cannot know every community's exception.
+ */
+export type CurfewOverride =
+  | { kind: 'none' }
+  | { kind: 'hours'; start: string; end: string };
 
 /**
  * Two different shapes, picked by `mode` — not one shape with optional fields.
@@ -44,7 +53,13 @@ export interface Stop {
   lat: number | null;
   lon: number | null;
   label: string;
-  arrival: Arrival;
+  /**
+   * The region the stop is in, as an ISO 3166-2 code ('UA-46' is Lviv oblast),
+   * which is what the curfew table is keyed by. Absent until the geocoder says.
+   */
+  region?: string;
+  curfewOverride?: CurfewOverride;
+  /** The traveller wants to stay the night here, even if they could drive on. */
   overnight: boolean;
   activities: Activity[];
   /** How we got HERE from the previous stop. null on the first stop. */
@@ -52,7 +67,11 @@ export interface Stop {
 }
 
 export interface Settings {
-  /** 'HH:mm' — the hours the traveller is willing to be on the road. */
+  /**
+   * 'HH:mm'. The traveller's day: nothing is planned before `dayStart`, and
+   * driving stops at `dayEnd`. Activities may run into the evening — only the
+   * curfew ends them.
+   */
   dayStart: string;
   dayEnd: string;
   avgSpeedKmh: number;

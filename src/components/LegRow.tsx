@@ -1,5 +1,5 @@
 import type { Leg, TransitKind } from '../types.ts';
-import { formatMinutes } from '../time.ts';
+import { formatMinutes, parseLocal, minutesBetween } from '../time.ts';
 
 const KIND_LABEL: Record<TransitKind, string> = {
   train: 'Поїзд',
@@ -12,6 +12,12 @@ const SOURCE_LABEL: Record<string, string> = {
   estimate: 'оцінка',
   manual: 'вручну',
 };
+
+function transitMinutes(departAt: string, arriveAt: string): number | null {
+  const dep = parseLocal(departAt);
+  const arr = parseLocal(arriveAt);
+  return dep && arr ? minutesBetween(dep, arr) : null;
+}
 
 export function LegRow({ leg, onChange }: { leg: Leg; onChange: (leg: Leg) => void }) {
   if (leg.mode === 'transit') {
@@ -51,9 +57,7 @@ export function LegRow({ leg, onChange }: { leg: Leg; onChange: (leg: Leg) => vo
 
         {incomplete
           ? <span className="badge badge--warn">впишіть час із розкладу</span>
-          : <span className="badge">{formatMinutes(
-              (new Date(leg.arriveAt).getTime() - new Date(leg.departAt).getTime()) / 60000,
-            )}</span>}
+          : <span className="badge">{formatMinutes(transitMinutes(leg.departAt, leg.arriveAt))}</span>}
       </div>
     );
   }

@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import type { Trip, Stop, Leg, TripMode } from './types.ts';
 import { computeSchedule } from './schedule.ts';
 import { formatMinutes, parseLocal } from './time.ts';
+import { CURFEW_CHECKED } from './curfew.ts';
 import { blankTrip, loadTrip, saveTrip, clearTrip, newStop } from './storage.ts';
 import { searchPlaces, reverseGeocode, roadLeg, estimateLeg, type Place, type Shape } from './places.ts';
 import { ModePicker } from './components/ModePicker.tsx';
@@ -91,7 +92,47 @@ export function App() {
     return () => window.clearTimeout(t);
   }, [justAdded]);
 
-  const schedule = useMemo(() => (trip ? computeSchedule(trip) : null), [trip]);
+  /**
+   * Stops saved before regions were recorded have no curfew of their own.
+   * Ask the geocoder once per stop, slowly — Nominatim allows one request a
+   * second — and fill the region in without touching anything else.
+   */
+  const regionTried = useRef(new Set<string>());
+  const missingRegions = trip
+    ? trip.stops
+      .filter(s => s.lat != null && s.lon != null && !s.region)
+      .map(s => `${s.id}|${s.lat}|${s.lon}`)
+      .filter(k => !regionTried.current.has(k))
+      .join(',')
+    : '';
+
+  useEffect(() => {
+    if (!missingRegions) return;
+    let cancelled = false;
+
+    (async () => {
+      for (const key of missingRegions.split(',')) {
+        if (cancelled) return;
+        regionTried.current.add(key);
+        const [id, lat, lon] = key.split('|');
+        const found = await reverseGeocode(+lat, +lon);
+        if (cancelled) return;
+        const region = found?.region;
+        if (region) {
+          setTrip(t => (t ? {
+            ...t,
+            stops: t.stops.map(x => (x.id === id && x.lat === +lat && x.lon === +lon ? { ...x, region } : x)),
+          } : t));
+        }
+        await new Promise(r => window.setTimeout(r, 1100));
+      }
+    })();
+
+    return () => { cancelled = true; };
+  }, [missingRegions]);
+
+  const startValid = trip ? parseLocal(trip.start) != null : false;
+  const schedule = useMemo(() => (trip && startValid ? computeSchedule(trip) : null), [trip, startValid]);
 
   if (!trip) {
     return <ModePicker onPick={mode => setTrip(blankTrip(mode))} />;
@@ -190,7 +231,7 @@ export function App() {
     searchSeq.current++;
 
     const stop = place
-      ? newStop(place.name, place.lat, place.lon, place.label)
+      ? newStop(place.name, place.lat, place.lon, place.label, place.region)
       : newStop(name);
 
     setQuery(''); setHits([]);
@@ -214,7 +255,7 @@ export function App() {
     setStatus('');
 
     const stop = found
-      ? newStop(found.name, lat, lon, found.label)
+      ? newStop(found.name, lat, lon, found.label, found.region)
       : newStop('Точка на карті', lat, lon);
 
     try {
@@ -289,6 +330,8 @@ export function App() {
       // A name the traveller typed outranks whatever the map calls this point.
       name: found && !current.renamed ? found.name : current.name,
       label: found ? found.label : '',
+      // The pin may have crossed into another region, with other curfew hours.
+      region: found ? found.region : current.region,
     };
     const stops = trip.stops.map(s => (s.id === id ? moved : s));
     setTrip(t => (t ? { ...t, stops } : t));
@@ -316,10 +359,29 @@ export function App() {
   const patchLeg = (id: string, leg: Leg) =>
     setTrip(t => (t ? { ...t, stops: t.stops.map(s => (s.id === id ? { ...s, leg } : s)) } : t));
 
-  const totals = schedule!.totals;
   const empty = trip.stops.length === 0;
-  let lastDay = '';
-  let dayNumber = 0;
+  const patchSettings = (patch: Partial<Trip['settings']>) =>
+    setTrip(t => (t ? { ...t, settings: { ...t.settings, ...patch } } : t));
+
+  /** Days are rendered as the route reaches them; this is the next one due. */
+  let nextDay = 0;
+  const arrivalDays = new Set(schedule?.stops.map(s => s.day));
+  const dayHead = (k: number) => {
+    const day = schedule!.days[k];
+    return (
+      <div className="dayhead" key={`day-${day.key}`}>
+        <span>
+          День {k + 1} · {dayLabel(day.key)}
+          {!arrivalDays.has(day.key) && <span className="hint"> · без нових зупинок</span>}
+        </span>
+        <span className="dayhead__sum">
+          {trip.mode === 'car' ? `${Math.round(day.km)} км · ` : ''}
+          дорога {formatMinutes(day.travelMinutes)} ·
+          зупинки {formatMinutes(day.activityMinutes)}
+        </span>
+      </div>
+    );
+  };
 
   return (
     <>
@@ -336,9 +398,26 @@ export function App() {
           <input
             type="datetime-local"
             value={trip.start}
-            onChange={e => setTrip({ ...trip, start: e.target.value })}
+            // Clearing the field would leave nothing to plan from: keep the old value.
+            onChange={e => { const v = e.target.value; if (v) setTrip(t => (t ? { ...t, start: v } : t)); }}
           />
         </label>
+        <span className="hint myday" title="Раніше нічого не плануємо; після «в дорозі до» машина не їде. Справи на зупинках можуть тривати до комендантської години.">
+          мій день: з
+          <input
+            type="time"
+            value={trip.settings.dayStart}
+            aria-label="Початок дня"
+            onChange={e => e.target.value && patchSettings({ dayStart: e.target.value })}
+          />
+          в дорозі до
+          <input
+            type="time"
+            value={trip.settings.dayEnd}
+            aria-label="До якої години в дорозі"
+            onChange={e => e.target.value && patchSettings({ dayEnd: e.target.value })}
+          />
+        </span>
         <label className="hint">
           транспорт
           <select
@@ -422,25 +501,20 @@ export function App() {
         </p>
       )}
 
+      {!startValid && !empty && (
+        <p className="empty">Вкажіть дату і час виїзду вгорі — від них рахується весь розклад.</p>
+      )}
+
+      {schedule && (
       <div className="route">
         {trip.stops.map((stop, i) => {
-          const scheduled = schedule!.stops[i];
+          const scheduled = schedule.stops[i];
           const rows = [];
 
-          if (scheduled.day !== lastDay) {
-            lastDay = scheduled.day;
-            dayNumber += 1;
-            const day = schedule!.days.find(d => d.key === scheduled.day);
-            rows.push(
-              <div className="dayhead" key={`day-${scheduled.day}`}>
-                <span>День {dayNumber} · {dayLabel(scheduled.day)}</span>
-                <span className="dayhead__sum">
-                  {trip.mode === 'car' && day ? `${Math.round(day.km)} км · ` : ''}
-                  дорога {formatMinutes(day?.travelMinutes ?? 0)} ·
-                  зупинки {formatMinutes(day?.activityMinutes ?? 0)}
-                </span>
-              </div>,
-            );
+          // A header for every calendar day up to this stop's, quiet days included.
+          while (nextDay < schedule.days.length && schedule.days[nextDay].key <= scheduled.day) {
+            rows.push(dayHead(nextDay));
+            nextDay += 1;
           }
 
           if (stop.leg) {
@@ -454,7 +528,10 @@ export function App() {
               key={stop.id}
               stop={stop}
               scheduled={scheduled}
+              number={i + 1}
               isFirst={i === 0}
+              dayStart={trip.settings.dayStart}
+              dayEnd={trip.settings.dayEnd}
               isNew={stop.id === justAdded}
               onChange={next => patchStop(stop.id, next)}
               onRemove={() => void removeStop(stop.id)}
@@ -464,15 +541,24 @@ export function App() {
           return rows;
         })}
       </div>
+      )}
+
+      {!empty && (
+        <p className="hint curfew-note">
+          Комендантська година — за даними на {CURFEW_CHECKED.split('-').reverse().join('.')}.
+          Години змінюються: перевіряйте їх у місцевій військовій адміністрації. На картці
+          зупинки їх можна виправити.
+        </p>
+      )}
       </div>
 
-      {trip.stops.length > 0 && (
+      {schedule && trip.stops.length > 0 && (
         <footer className="band band--bottom">
           <div className="band__inner totals">
-            {trip.mode === 'car' && <span>усього <b>{Math.round(totals.km)} км</b></span>}
-            <span>у дорозі <b>{formatMinutes(totals.travelMinutes)}</b></span>
-            <span>на зупинках <b>{formatMinutes(totals.activityMinutes)}</b></span>
-            <span>днів <b>{totals.days}</b></span>
+            {trip.mode === 'car' && <span>усього <b>{Math.round(schedule.totals.km)} км</b></span>}
+            <span>у дорозі <b>{formatMinutes(schedule.totals.travelMinutes)}</b></span>
+            <span>на зупинках <b>{formatMinutes(schedule.totals.activityMinutes)}</b></span>
+            <span>днів <b>{schedule.totals.days}</b></span>
           </div>
         </footer>
       )}

@@ -4,11 +4,24 @@ const KEY = 'travel-planner-v2';
 
 export const uid = (): string => Math.random().toString(36).slice(2, 9);
 
-export function newStop(name: string, lat: number | null = null, lon: number | null = null, label = ''): Stop {
+export function newStop(
+  name: string, lat: number | null = null, lon: number | null = null, label = '', region?: string,
+): Stop {
   return {
     id: uid(), name, lat, lon, label,
-    arrival: { kind: 'auto' }, overnight: false, activities: [], leg: null,
+    ...(region ? { region } : {}),
+    overnight: false, activities: [], leg: null,
   };
+}
+
+/**
+ * Trips saved before this version carry an `arrival` field that no longer
+ * exists. Drop it rather than refuse the whole trip.
+ */
+function upgradeStop(raw: Stop & { arrival?: unknown }): Stop {
+  const { arrival: _dropped, ...stop } = raw;
+  void _dropped;
+  return stop;
 }
 
 export function blankTrip(mode: TripMode): Trip {
@@ -33,7 +46,12 @@ export function loadTrip(): Trip | null {
     const raw = localStorage.getItem(KEY);
     if (!raw) return null;
     const data = JSON.parse(raw) as Trip;
-    return data && data.version === 2 ? data : null;
+    if (!data || data.version !== 2) return null;
+    return {
+      ...data,
+      stops: (data.stops ?? []).map(upgradeStop),
+      parked: (data.parked ?? []).map(upgradeStop),
+    };
   } catch {
     return null;
   }
