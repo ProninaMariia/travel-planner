@@ -1,4 +1,4 @@
-import type { Trip, Stop, TripMode } from './types.ts';
+import type { Trip, Stop, TripMode, Settings } from './types.ts';
 
 const KEY = 'travel-planner-v2';
 
@@ -24,6 +24,32 @@ function upgradeStop(raw: Stop & { arrival?: unknown }): Stop {
   return stop;
 }
 
+export const DEFAULT_SETTINGS: Settings = {
+  morning: '05:00',
+  driveUntil: null,
+  drivers: 1,
+  avgSpeedKmh: 70,
+  roadFactor: 1.25,
+  stopBufferMinutes: 0,
+};
+
+/**
+ * Settings saved by earlier versions had a fixed 09:00–20:00 day. That is
+ * gone — only the curfew limits driving now — so keep what still exists and
+ * fill the rest with today's defaults.
+ */
+function upgradeSettings(raw: Partial<Settings> | undefined): Settings {
+  const r = raw ?? {};
+  return {
+    morning: typeof r.morning === 'string' ? r.morning : DEFAULT_SETTINGS.morning,
+    driveUntil: typeof r.driveUntil === 'string' ? r.driveUntil : null,
+    drivers: r.drivers === 2 ? 2 : 1,
+    avgSpeedKmh: r.avgSpeedKmh || DEFAULT_SETTINGS.avgSpeedKmh,
+    roadFactor: r.roadFactor || DEFAULT_SETTINGS.roadFactor,
+    stopBufferMinutes: r.stopBufferMinutes ?? 0,
+  };
+}
+
 export function blankTrip(mode: TripMode): Trip {
   const tomorrow = new Date(Date.now() + 864e5);
   const iso = `${tomorrow.getFullYear()}-${String(tomorrow.getMonth() + 1).padStart(2, '0')}-${String(tomorrow.getDate()).padStart(2, '0')}`;
@@ -32,10 +58,7 @@ export function blankTrip(mode: TripMode): Trip {
     title: '',
     mode,
     start: `${iso}T09:00`,
-    settings: {
-      dayStart: '09:00', dayEnd: '20:00',
-      avgSpeedKmh: 70, roadFactor: 1.25, stopBufferMinutes: 0,
-    },
+    settings: { ...DEFAULT_SETTINGS },
     stops: [],
     parked: [],
   };
@@ -49,6 +72,7 @@ export function loadTrip(): Trip | null {
     if (!data || data.version !== 2) return null;
     return {
       ...data,
+      settings: upgradeSettings(data.settings),
       stops: (data.stops ?? []).map(upgradeStop),
       parked: (data.parked ?? []).map(upgradeStop),
     };

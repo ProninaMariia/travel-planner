@@ -61,6 +61,11 @@ export interface Stop {
   curfewOverride?: CurfewOverride;
   /** The traveller wants to stay the night here, even if they could drive on. */
   overnight: boolean;
+  /**
+   * Which of the recommended breaks on the drive here the traveller will take
+   * (1 = the first). Only these change the arrival time; the rest stay advice.
+   */
+  takenBreaks?: number[];
   activities: Activity[];
   /** How we got HERE from the previous stop. null on the first stop. */
   leg: Leg | null;
@@ -68,12 +73,15 @@ export interface Stop {
 
 export interface Settings {
   /**
-   * 'HH:mm'. The traveller's day: nothing is planned before `dayStart`, and
-   * driving stops at `dayEnd`. Activities may run into the evening — only the
-   * curfew ends them.
+   * 'HH:mm' — after a night, set off at this time (or when the curfew ends,
+   * if that is later). People drive very differently, so nothing else about
+   * the traveller's day is assumed: only the curfew stops the car.
    */
-  dayStart: string;
-  dayEnd: string;
+  morning: string;
+  /** 'HH:mm' — "I don't drive after this". null: no such limit. */
+  driveUntil: string | null;
+  /** 2 means two or more: they swap at the wheel instead of resting. */
+  drivers: 1 | 2;
   avgSpeedKmh: number;
   roadFactor: number;
   /** Added once per stop that has any activities. */

@@ -388,8 +388,22 @@ button:disabled { opacity: 0.5; cursor: default; }
 .curfew__edit { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin-top: 6px; }
 .curfew__edit label { display: flex; gap: 5px; align-items: center; }
 
-.myday { display: inline-flex; flex-wrap: wrap; gap: 5px; align-items: center; }
-.myday input { width: auto; }
+.myday { display: inline-flex; flex-wrap: wrap; gap: 6px 12px; align-items: center; }
+.myday label { display: inline-flex; gap: 5px; align-items: center; }
+.myday input, .myday select { width: auto; }
+
+.breaks { margin: -4px 0 6px 26px; font-size: 13px; }
+.breaks p { margin: 0 0 4px; }
+.breaks ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 3px; }
+.breaks label { display: inline-flex; gap: 6px; align-items: center; cursor: pointer; }
+.breaks b { font-variant-numeric: tabular-nums; }
+
+.dayhead { flex-wrap: wrap; }
+.dayhead__advice {
+  flex-basis: 100%;
+  font-weight: 400;
+  color: var(--warn);
+}
 
 .curfew-note { margin: 18px 4px 0; font-size: 12px; }
 

@@ -32,19 +32,25 @@ flagged.
 
 ## How the schedule is computed
 
-- **The start time is kept as set**, even before `dayStart` — long drives
-  start at 4–5 am, right after curfew. Only the curfew can move it.
-- **My day** (`dayStart`..`dayEnd`, editable in the header): mornings after a
-  night start at `dayStart`; the car does not drive after `dayEnd`.
-- **Curfew**: no driving, and no arriving by car, during the curfew of either
-  end of a leg. Activities stop at the curfew. A train that arrives or leaves
+People travel very differently, so the planner assumes as little as it can.
+
+- **Only the curfew is a hard limit**: no driving, and no arriving by car,
+  during the curfew of either end of a leg. A train that arrives or leaves
   during curfew is kept as timetabled and flagged — the ticket works as a pass.
-- **Activities are never cut in two.** One that does not fit before the night
-  moves whole to the next morning.
-- **Overnight** means one night: leave the morning after arriving. When the
-  next drive does not fit in what is left of today, the traveller stays the
-  night anyway and the card says why. Only a drive longer than a whole day is
-  split on the road, and that is flagged.
+- **The start time is kept as set**; only the curfew can move it.
+- **"I don't drive after HH:MM"** is an optional setting, off by default.
+- **After a night**, set off at the `morning` setting (05:00 by default), or
+  when the curfew ends if that is later.
+- **Activities start on arrival** and stop at the curfew. One is never cut in
+  two: if it does not fit, it moves whole.
+- **When the next drive mostly does not fit before the curfew**, the night is
+  spent at the stop and the card says why. When most of it fits, the car goes
+  and the card suggests a night stop on the way.
+- **Tiredness is advice, never a rule.** After 4.5 h at the wheel a 45-min
+  break is recommended (with two drivers, a 15-min swap), and more than 9 h of
+  driving in a day is pointed out. These are the professional drivers' limits
+  (Order 340 / EU 561/2006), used as a safety benchmark. A break is in the
+  arrival time only when the traveller ticks it.
 - **Days** are calendar days from the start to the end, quiet ones included.
 
 Curfew hours live in `src/curfew.ts`, keyed by the ISO 3166-2 region code the

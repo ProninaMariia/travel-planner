@@ -7,7 +7,8 @@ import { uid } from '../storage.ts';
 
 /** Every warning says what is wrong and what to do about it. */
 const WARNING_TEXT: Record<Warning, string> = {
-  'overnight-en-route': 'Цю дорогу не проїхати за один день — додайте зупинку з ночівлею по дорозі.',
+  // Replaced in the card with the traveller's own limit when they set one.
+  'overnight-en-route': 'Комендантська година застане вас у дорозі — додайте зупинку з ночівлею по дорозі.',
   'activity-moved': 'До ночі все не вміщується — частину планів перенесено на наступний ранок.',
   'activity-too-long': 'Одна зі справ довша, ніж дозволяє день до комендантської години.',
   'will-miss-departure': 'Не встигаєте на відправлення — скоротіть плани тут.',
@@ -30,14 +31,14 @@ interface Props {
   isFirst: boolean;
   /** Just added: worth a moment of attention. */
   isNew: boolean;
-  dayStart: string;
-  dayEnd: string;
+  /** The traveller's own "I don't drive after", if set. */
+  driveUntil: string | null;
   onChange: (stop: Stop) => void;
   onRemove: () => void;
 }
 
 export function StopCard({
-  stop, scheduled, number, isFirst, isNew, dayStart, dayEnd, onChange, onRemove,
+  stop, scheduled, number, isFirst, isNew, driveUntil, onChange, onRemove,
 }: Props) {
   const [draft, setDraft] = useState('');
 
@@ -68,14 +69,21 @@ export function StopCard({
 
   const noteText = (note: Note): string => {
     switch (note) {
-      case 'night-auto':
-        return `Далі сьогодні не встигаєте (дорога — до ${dayEnd}, або комендантська година), тож ночуєте тут. Виїзд завтра о ${departClock}.`;
-      case 'wait-day':
-        return `Виїзд о ${departClock}: ваш день починається о ${dayStart}. Їдете раніше — змініть «мій день» угорі.`;
+      case 'night-curfew':
+        return `Далі сьогодні не встигаєте до комендантської години — ночуєте тут. Виїзд о ${departClock}.`;
+      case 'night-limit':
+        return `Ви не їдете після ${driveUntil ?? '—'} — ночуєте тут. Виїзд о ${departClock}.`;
       case 'wait-curfew':
         return `Виїзд о ${departClock}: до цього діє комендантська година.`;
+      case 'wait-limit':
+        return `Виїзд о ${departClock}: так налаштовані ваші години в дорозі (угорі).`;
     }
   };
+
+  const warningText = (w: Warning): string =>
+    w === 'overnight-en-route' && driveUntil
+      ? `Дорогу не проїхати до комендантської години чи до ${driveUntil} — додайте зупинку з ночівлею по дорозі.`
+      : WARNING_TEXT[w] ?? w;
 
   // ---- curfew ----
   const { curfew, source, regionName } = scheduled.curfew;
@@ -147,7 +155,7 @@ export function StopCard({
 
       {scheduled.warnings.length > 0 && (
         <ul className="warnings">
-          {scheduled.warnings.map(w => <li key={w}>{WARNING_TEXT[w] ?? w}</li>)}
+          {scheduled.warnings.map(w => <li key={w}>{warningText(w)}</li>)}
         </ul>
       )}
 

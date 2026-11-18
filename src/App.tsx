@@ -379,9 +379,27 @@ export function App() {
           дорога {formatMinutes(day.travelMinutes)} ·
           зупинки {formatMinutes(day.activityMinutes)}
         </span>
+        {day.longDriving && (
+          <span className="dayhead__advice">
+            Понад 9 год за кермом ({formatMinutes(day.drivingMinutes)}) — для безпеки подумайте про ночівлю
+            по дорозі або другого водія.
+          </span>
+        )}
       </div>
     );
   };
+
+  /** Tick or untick a recommended break on the drive into `stopId`. */
+  const toggleBreak = (stopId: string, ordinal: number) =>
+    setTrip(t => (t ? {
+      ...t,
+      stops: t.stops.map(s => {
+        if (s.id !== stopId) return s;
+        const taken = new Set(s.takenBreaks ?? []);
+        if (taken.has(ordinal)) taken.delete(ordinal); else taken.add(ordinal);
+        return { ...s, takenBreaks: [...taken].sort((a, b) => a - b) };
+      }),
+    } : t));
 
   return (
     <>
@@ -402,22 +420,44 @@ export function App() {
             onChange={e => { const v = e.target.value; if (v) setTrip(t => (t ? { ...t, start: v } : t)); }}
           />
         </label>
-        <span className="hint myday" title="З цієї години починаються ранки після ночівлі (перший виїзд — коли ви вказали). Після «в дорозі до» машина не їде. Справи на зупинках можуть тривати до комендантської години.">
-          мій день: з
-          <input
-            type="time"
-            value={trip.settings.dayStart}
-            aria-label="Початок дня"
-            onChange={e => e.target.value && patchSettings({ dayStart: e.target.value })}
-          />
-          в дорозі до
-          <input
-            type="time"
-            value={trip.settings.dayEnd}
-            aria-label="До якої години в дорозі"
-            onChange={e => e.target.value && patchSettings({ dayEnd: e.target.value })}
-          />
-        </span>
+        {trip.mode === 'car' && (
+          <span className="hint myday">
+            <label title="Коли виїжджати після ночівлі. Якщо комендантська закінчується пізніше — після неї.">
+              після ночівлі виїжджаю о
+              <input
+                type="time"
+                value={trip.settings.morning}
+                onChange={e => e.target.value && patchSettings({ morning: e.target.value })}
+              />
+            </label>
+            <label title="Необов'язково. Без цього машину зупиняє тільки комендантська година.">
+              <input
+                type="checkbox"
+                checked={trip.settings.driveUntil != null}
+                onChange={e => patchSettings({ driveUntil: e.target.checked ? '20:00' : null })}
+              />
+              не їду після
+            </label>
+            {trip.settings.driveUntil != null && (
+              <input
+                type="time"
+                value={trip.settings.driveUntil}
+                aria-label="Не їду після"
+                onChange={e => e.target.value && patchSettings({ driveUntil: e.target.value })}
+              />
+            )}
+            <label>
+              водіїв
+              <select
+                value={trip.settings.drivers}
+                onChange={e => patchSettings({ drivers: e.target.value === '2' ? 2 : 1 })}
+              >
+                <option value="1">1</option>
+                <option value="2">2 і більше</option>
+              </select>
+            </label>
+          </span>
+        )}
         <label className="hint">
           транспорт
           <select
@@ -519,7 +559,13 @@ export function App() {
 
           if (stop.leg) {
             rows.push(
-              <LegRow key={`leg-${stop.id}`} leg={stop.leg} onChange={leg => patchLeg(stop.id, leg)} />,
+              <LegRow
+                key={`leg-${stop.id}`}
+                leg={stop.leg}
+                onChange={leg => patchLeg(stop.id, leg)}
+                breaks={scheduled.breaks}
+                onToggleBreak={ordinal => toggleBreak(stop.id, ordinal)}
+              />,
             );
           }
 
@@ -530,8 +576,7 @@ export function App() {
               scheduled={scheduled}
               number={i + 1}
               isFirst={i === 0}
-              dayStart={trip.settings.dayStart}
-              dayEnd={trip.settings.dayEnd}
+              driveUntil={trip.settings.driveUntil}
               isNew={stop.id === justAdded}
               onChange={next => patchStop(stop.id, next)}
               onRemove={() => void removeStop(stop.id)}
