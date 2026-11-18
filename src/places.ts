@@ -9,22 +9,32 @@ export interface Place {
   label: string;
   lat: number;
   lon: number;
+  /** ISO 3166-2 region code, e.g. 'UA-46'. Keys the curfew table. */
+  region?: string;
 }
+
+type Address = Record<string, string>;
+
+/** Nominatim puts the region's ISO code in the address of every answer. */
+const regionOf = (address: Address | undefined): string | undefined =>
+  address?.['ISO3166-2-lvl4'] || undefined;
 
 /**
  * `acceptLanguage` matters: without it Nominatim answers in the local language,
  * so an English query can come back unrecognisable. Testers hit exactly this.
  */
 export async function searchPlaces(query: string, acceptLanguage = 'uk,en'): Promise<Place[]> {
-  const url = `${NOMINATIM}?format=jsonv2&limit=6&accept-language=${encodeURIComponent(acceptLanguage)}&q=${encodeURIComponent(query)}`;
+  const url = `${NOMINATIM}?format=jsonv2&limit=6&addressdetails=1`
+    + `&accept-language=${encodeURIComponent(acceptLanguage)}&q=${encodeURIComponent(query)}`;
   const res = await fetch(url, { headers: { Accept: 'application/json' } });
   if (!res.ok) throw new Error(`geocoder HTTP ${res.status}`);
-  const rows = (await res.json()) as Array<{ display_name: string; lat: string; lon: string }>;
+  const rows = (await res.json()) as Array<{ display_name: string; lat: string; lon: string; address?: Address }>;
   return rows.map(r => ({
     name: r.display_name.split(',')[0].trim(),
     label: r.display_name,
     lat: parseFloat(r.lat),
     lon: parseFloat(r.lon),
+    region: regionOf(r.address),
   }));
 }
 
@@ -46,7 +56,7 @@ const SETTLEMENT_KEYS = [
 interface ReverseAnswer {
   display_name?: string;
   name?: string;
-  address?: Record<string, string>;
+  address?: Address;
 }
 
 function settlementName(row: ReverseAnswer): string | null {
@@ -70,7 +80,7 @@ export async function reverseGeocode(
     const row = (await res.json()) as ReverseAnswer;
     const name = settlementName(row);
     if (!name) return null;
-    return { name, label: row.display_name ?? name, lat, lon };
+    return { name, label: row.display_name ?? name, lat, lon, region: regionOf(row.address) };
   } catch {
     return null;
   }
