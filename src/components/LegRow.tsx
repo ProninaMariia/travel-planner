@@ -1,5 +1,7 @@
 import type { Leg, TransitKind } from '../types.ts';
-import { formatMinutes } from '../time.ts';
+import type { ScheduledBreak } from '../schedule.ts';
+import { BREAK_AFTER_MINUTES } from '../schedule.ts';
+import { formatMinutes, formatClock, parseLocal, minutesBetween } from '../time.ts';
 
 const KIND_LABEL: Record<TransitKind, string> = {
   train: 'Поїзд',
@@ -7,19 +9,47 @@ const KIND_LABEL: Record<TransitKind, string> = {
   flight: 'Літак',
 };
 
+/*
+ * Where these numbers came from — a caption, not a control. It used to be a
+ * coloured pill reading "за дорогами", which a tester took for a button that
+ * would open navigation.
+ */
 const SOURCE_LABEL: Record<string, string> = {
-  road: 'за дорогами',
-  estimate: 'оцінка',
-  manual: 'вручну',
+  road: 'пораховано по дорогах',
+  estimate: 'оцінка по прямій',
+  manual: 'вписано вручну',
 };
 
-export function LegRow({ leg, onChange }: { leg: Leg; onChange: (leg: Leg) => void }) {
+const InsertHere = ({ onInsert }: { onInsert: () => void }) => (
+  <button type="button" className="ghost leg__insert" title="Вставити зупинку сюди" onClick={onInsert}>
+    ＋
+  </button>
+);
+
+function transitMinutes(departAt: string, arriveAt: string): number | null {
+  const dep = parseLocal(departAt);
+  const arr = parseLocal(arriveAt);
+  return dep && arr ? minutesBetween(dep, arr) : null;
+}
+
+interface Props {
+  leg: Leg;
+  onChange: (leg: Leg) => void;
+  /** Recommended breaks on this drive (car only). */
+  breaks?: ScheduledBreak[];
+  onToggleBreak?: (ordinal: number) => void;
+  /** Put the next stop here, between these two. */
+  onInsert: () => void;
+}
+
+export function LegRow({ leg, onChange, breaks = [], onToggleBreak, onInsert }: Props) {
   if (leg.mode === 'transit') {
     const incomplete = !leg.departAt || !leg.arriveAt;
 
     return (
       <div className="leg leg--transit">
         <span className="leg__arrow">↓</span>
+        <InsertHere onInsert={onInsert} />
 
         <select
           value={leg.kind}
@@ -51,19 +81,22 @@ export function LegRow({ leg, onChange }: { leg: Leg; onChange: (leg: Leg) => vo
 
         {incomplete
           ? <span className="badge badge--warn">впишіть час із розкладу</span>
-          : <span className="badge">{formatMinutes(
-              (new Date(leg.arriveAt).getTime() - new Date(leg.departAt).getTime()) / 60000,
-            )}</span>}
+          : <span className="badge">{formatMinutes(transitMinutes(leg.departAt, leg.arriveAt))}</span>}
       </div>
     );
   }
 
+  const breakMinutes = breaks.filter(b => b.taken).reduce((t, b) => t + b.minutes, 0);
+
   return (
+    <div className="leg-wrap">
     <div className="leg">
       <span className="leg__arrow">↓</span>
+      <InsertHere onInsert={onInsert} />
       <strong>{Math.round(leg.km)} км</strong>
       <strong>{formatMinutes(leg.minutes)}</strong>
-      <span className="badge">{SOURCE_LABEL[leg.source]}</span>
+      {breakMinutes > 0 && <span className="hint">+ {formatMinutes(breakMinutes)} перерв</span>}
+      <span className="hint leg__source">{SOURCE_LABEL[leg.source]}</span>
 
       <span className="leg__manual">
         <label>
@@ -86,6 +119,28 @@ export function LegRow({ leg, onChange }: { leg: Leg; onChange: (leg: Leg) => vo
           />
         </label>
       </span>
+    </div>
+
+    {breaks.length > 0 && (
+      <div className="breaks">
+        <p className="hint">
+          Для вашої безпеки радимо {breaks[0].kind === 'swap' ? 'мінятися за кермом' : 'робити перерву'} кожні{' '}
+          {formatMinutes(BREAK_AFTER_MINUTES)} за кермом. Позначте ті, які плануєте, — вони додадуться до часу прибуття.
+        </p>
+        <ul>
+          {breaks.map(b => (
+            <li key={b.ordinal}>
+              <label>
+                <input type="checkbox" checked={b.taken} onChange={() => onToggleBreak?.(b.ordinal)} />
+                {b.kind === 'swap' ? 'зміна водія' : 'перерва'} {formatMinutes(b.minutes)} близько{' '}
+                <b>{formatClock(b.at)}</b>
+                <span className="hint"> · на ≈{Math.round(b.km)}-му км дороги</span>
+              </label>
+            </li>
+          ))}
+        </ul>
+      </div>
+    )}
     </div>
   );
 }

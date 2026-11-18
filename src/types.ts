@@ -13,10 +13,19 @@ export interface Activity {
   minutes: number;
 }
 
-/** Arrival is computed unless the traveller pinned it. */
-export type Arrival =
-  | { kind: 'auto' }
-  | { kind: 'pinned'; at: string };
+/** Curfew hours, local wall clock 'HH:mm'. `start` > `end` means it runs past midnight. */
+export interface Curfew {
+  start: string;
+  end: string;
+}
+
+/**
+ * The traveller's own correction to the curfew table, which goes out of date
+ * and cannot know every community's exception.
+ */
+export type CurfewOverride =
+  | { kind: 'none' }
+  | { kind: 'hours'; start: string; end: string };
 
 /**
  * Two different shapes, picked by `mode` — not one shape with optional fields.
@@ -44,17 +53,35 @@ export interface Stop {
   lat: number | null;
   lon: number | null;
   label: string;
-  arrival: Arrival;
+  /**
+   * The region the stop is in, as an ISO 3166-2 code ('UA-46' is Lviv oblast),
+   * which is what the curfew table is keyed by. Absent until the geocoder says.
+   */
+  region?: string;
+  curfewOverride?: CurfewOverride;
+  /** The traveller wants to stay the night here, even if they could drive on. */
   overnight: boolean;
+  /**
+   * Which of the recommended breaks on the drive here the traveller will take
+   * (1 = the first). Only these change the arrival time; the rest stay advice.
+   */
+  takenBreaks?: number[];
   activities: Activity[];
   /** How we got HERE from the previous stop. null on the first stop. */
   leg: Leg | null;
 }
 
 export interface Settings {
-  /** 'HH:mm' — the hours the traveller is willing to be on the road. */
-  dayStart: string;
-  dayEnd: string;
+  /**
+   * 'HH:mm' — after a night, set off at this time (or when the curfew ends,
+   * if that is later). People drive very differently, so nothing else about
+   * the traveller's day is assumed: only the curfew stops the car.
+   */
+  morning: string;
+  /** 'HH:mm' — "I don't drive after this". null: no such limit. */
+  driveUntil: string | null;
+  /** 2 means two or more: they swap at the wheel instead of resting. */
+  drivers: 1 | 2;
   avgSpeedKmh: number;
   roadFactor: number;
   /** Added once per stop that has any activities. */

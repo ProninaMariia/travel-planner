@@ -9,23 +9,91 @@ export interface Place {
   label: string;
   lat: number;
   lon: number;
+  /** ISO 3166-2 region code, e.g. 'UA-46'. Keys the curfew table. */
+  region?: string;
+}
+
+type Address = Record<string, string>;
+
+/** Nominatim puts the region's ISO code in the address of every answer. */
+const regionOf = (address: Address | undefined): string | undefined =>
+  address?.['ISO3166-2-lvl4'] || undefined;
+
+/** Roughly Ukraine, as lon,lat,lon,lat. Results inside are ranked higher. */
+const HOME_VIEWBOX = '22.0,52.4,40.3,44.3';
+
+/** Places people travel between, ahead of streets, shops and monuments. */
+const SETTLEMENT_TYPES = new Set([
+  'city', 'town', 'village', 'hamlet', 'municipality', 'administrative',
+]);
+
+interface SearchRow {
+  display_name: string;
+  name?: string;
+  lat: string;
+  lon: string;
+  importance?: number;
+  addresstype?: string;
+  type?: string;
+  class?: string;
+  address?: Address;
+}
+
+/**
+ * Nominatim sorts by its own notion of importance, which puts a Belarusian
+ * village called Дніпро above the Ukrainian city. Two corrections: ask it to
+ * favour the area the trip is already in, then rank settlements above
+ * everything else and exact name matches above partial ones.
+ */
+function score(row: SearchRow, query: string): number {
+  const kind = row.addresstype ?? row.type ?? '';
+  const name = (row.name ?? row.display_name.split(',')[0]).toLowerCase();
+  const asked = query.trim().toLowerCase();
+
+  let points = row.importance ?? 0;
+  if (SETTLEMENT_TYPES.has(kind)) points += 1;
+  if (kind === 'city') points += 0.5;
+  if (name === asked) points += 1;
+  else if (name.startsWith(asked)) points += 0.3;
+  return points;
 }
 
 /**
  * `acceptLanguage` matters: without it Nominatim answers in the local language,
  * so an English query can come back unrecognisable. Testers hit exactly this.
+ *
+ * `near` is where the traveller already is on this trip — the search leans
+ * towards that corner of the world rather than guessing globally.
  */
-export async function searchPlaces(query: string, acceptLanguage = 'uk,en'): Promise<Place[]> {
-  const url = `${NOMINATIM}?format=jsonv2&limit=6&accept-language=${encodeURIComponent(acceptLanguage)}&q=${encodeURIComponent(query)}`;
+export async function searchPlaces(
+  query: string,
+  near?: { lat: number; lon: number } | null,
+  acceptLanguage = 'uk,en',
+): Promise<Place[]> {
+  const box = near
+    ? [near.lon - 3, near.lat + 3, near.lon + 3, near.lat - 3].map(n => n.toFixed(3)).join(',')
+    : HOME_VIEWBOX;
+
+  const url = `${NOMINATIM}?format=jsonv2&limit=10&addressdetails=1`
+    + `&accept-language=${encodeURIComponent(acceptLanguage)}`
+    + `&viewbox=${box}`
+    + `&q=${encodeURIComponent(query)}`;
+
   const res = await fetch(url, { headers: { Accept: 'application/json' } });
   if (!res.ok) throw new Error(`geocoder HTTP ${res.status}`);
-  const rows = (await res.json()) as Array<{ display_name: string; lat: string; lon: string }>;
-  return rows.map(r => ({
-    name: r.display_name.split(',')[0].trim(),
-    label: r.display_name,
-    lat: parseFloat(r.lat),
-    lon: parseFloat(r.lon),
-  }));
+  const rows = (await res.json()) as SearchRow[];
+
+  return rows
+    .map(row => ({ row, points: score(row, query) }))
+    .sort((a, b) => b.points - a.points)
+    .slice(0, 6)
+    .map(({ row }) => ({
+      name: row.name?.trim() || row.display_name.split(',')[0].trim(),
+      label: row.display_name,
+      lat: parseFloat(row.lat),
+      lon: parseFloat(row.lon),
+      region: regionOf(row.address),
+    }));
 }
 
 /**
@@ -46,7 +114,7 @@ const SETTLEMENT_KEYS = [
 interface ReverseAnswer {
   display_name?: string;
   name?: string;
-  address?: Record<string, string>;
+  address?: Address;
 }
 
 function settlementName(row: ReverseAnswer): string | null {
@@ -70,7 +138,7 @@ export async function reverseGeocode(
     const row = (await res.json()) as ReverseAnswer;
     const name = settlementName(row);
     if (!name) return null;
-    return { name, label: row.display_name ?? name, lat, lon };
+    return { name, label: row.display_name ?? name, lat, lon, region: regionOf(row.address) };
   } catch {
     return null;
   }

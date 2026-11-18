@@ -75,10 +75,33 @@ button:disabled { opacity: 0.5; cursor: default; }
 
 .ghost { background: none; border-color: transparent; color: var(--muted); padding: 4px 7px; }
 .ghost:hover { color: var(--ink); border-color: var(--line); }
-.ghost--on { color: var(--accent); }
+.ghost--on { color: var(--accent); background: var(--accent-soft); border-color: var(--accent-soft); }
 
 .hint { color: var(--muted); font-size: 14px; }
 .grow { flex: 1; }
+
+/*
+ * Labels, badges and read-only numbers are chrome, not content. On a phone a
+ * long press selects any text and offers "search the web" — one tester took
+ * the "за дорогами" badge for a link and ended up in Google.
+ */
+.badge,
+.hint,
+.dayhead,
+.times,
+.leg,
+button {
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+/* The things worth copying stay copyable. */
+.card__name,
+input,
+.acts {
+  -webkit-user-select: text;
+  user-select: text;
+}
 
 .badge {
   font-size: 12px;
@@ -341,7 +364,71 @@ button:disabled { opacity: 0.5; cursor: default; }
 .free--negative { color: var(--warn); }
 .free--negative b { color: var(--warn); }
 
-.warnings { display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0 0; }
+.card__num {
+  flex: none;
+  display: inline-grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: var(--accent);
+  color: var(--field);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+/* Why the plan looks the way it does — calm, not alarming. */
+.notes,
+.warnings {
+  list-style: none;
+  margin: 8px 0 0;
+  padding: 0;
+  display: grid;
+  gap: 4px;
+  font-size: 13px;
+}
+.notes li { color: var(--muted); padding-left: 10px; border-left: 2px solid var(--accent-soft); }
+/* Something to act on. */
+.warnings li {
+  color: var(--warn);
+  background: var(--warn-soft);
+  border-radius: 6px;
+  padding: 5px 9px;
+}
+
+.acts__when {
+  flex: none;
+  min-width: 92px;
+  color: var(--muted);
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+}
+.acts__when--moved { color: var(--warn); }
+
+.curfew { margin-top: 10px; font-size: 13px; color: var(--muted); }
+.curfew summary { cursor: pointer; }
+.curfew summary b { color: var(--ink); font-variant-numeric: tabular-nums; }
+.curfew__edit { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin-top: 6px; }
+.curfew__edit label { display: flex; gap: 5px; align-items: center; }
+
+.myday { display: inline-flex; flex-wrap: wrap; gap: 6px 12px; align-items: center; }
+.myday label { display: inline-flex; gap: 5px; align-items: center; }
+.myday input, .myday select { width: auto; }
+
+.breaks { margin: -4px 0 6px 26px; font-size: 13px; }
+.breaks p { margin: 0 0 4px; }
+.breaks ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 3px; }
+.breaks label { display: inline-flex; gap: 6px; align-items: center; cursor: pointer; }
+.breaks b { font-variant-numeric: tabular-nums; }
+
+.dayhead { flex-wrap: wrap; }
+.dayhead__advice {
+  flex-basis: 100%;
+  font-weight: 400;
+  color: var(--warn);
+}
+
+.curfew-note { margin: 18px 4px 0; font-size: 12px; }
 
 .acts { list-style: none; margin: 10px 0 0; padding: 10px 0 0; border-top: 1px dashed var(--line); }
 .acts li { display: flex; gap: 6px; align-items: center; padding: 2px 0; }
@@ -350,7 +437,8 @@ button:disabled { opacity: 0.5; cursor: default; }
 .acts__minutes { width: 74px; text-align: right; }
 
 .acts__add { display: flex; gap: 6px; margin-top: 8px; }
-.acts__add input { flex: 1; }
+.acts__add input { flex: 1; min-width: 0; }
+.card__top .ghost { white-space: nowrap; }
 
 .leg {
   display: flex;
@@ -364,6 +452,9 @@ button:disabled { opacity: 0.5; cursor: default; }
 
 .leg b { color: var(--ink); font-variant-numeric: tabular-nums; }
 .leg__arrow { color: var(--accent); }
+.leg__insert { font-size: 15px; line-height: 1; padding: 2px 6px; }
+.leg__source { font-size: 13px; font-style: italic; }
+.leg:hover .leg__insert { color: var(--accent); border-color: var(--line); }
 .leg__manual { display: flex; gap: 8px; margin-left: auto; }
 .leg__manual input { width: 78px; text-align: right; }
 .leg label { display: flex; gap: 5px; align-items: center; }
@@ -377,6 +468,10 @@ button:disabled { opacity: 0.5; cursor: default; }
 
 @media (max-width: 560px) {
   .map { height: 240px; }
+  .card__top { flex-wrap: wrap; }
+  .card__name { flex: 1 1 150px; }
+  .acts li { flex-wrap: wrap; }
+  .acts__when { min-width: 0; width: 100%; }
   .leg__manual { margin-left: 0; }
   .dayhead__sum { margin-left: 0; width: 100%; }
   .band--hero h1 { font-size: 26px; }
