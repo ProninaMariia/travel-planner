@@ -71,7 +71,7 @@ export function StopCard({
       case 'night-auto':
         return `Далі сьогодні не встигаєте (дорога — до ${dayEnd}, або комендантська година), тож ночуєте тут. Виїзд завтра о ${departClock}.`;
       case 'wait-day':
-        return `Виїзд о ${departClock}: ваш день починається о ${dayStart}. Змінити можна вгорі, у «Мій день».`;
+        return `Виїзд о ${departClock}: ваш день починається о ${dayStart}. Їдете раніше — змініть «мій день» угорі.`;
       case 'wait-curfew':
         return `Виїзд о ${departClock}: до цього діє комендантська година.`;
     }

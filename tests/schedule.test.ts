@@ -126,12 +126,41 @@ console.log('\n8. Day totals add up to the trip totals');
 // The bugs testers ran into. Each one failed before this change.
 // ---------------------------------------------------------------------------
 
-console.log('\nA. Leaving before the day starts waits for the day');
+console.log('\nA. The start time the traveller set is kept, even before their usual day');
 {
   const s = computeSchedule(trip([stop('A'), stop('B', { leg: car(140, 120) })], { start: '2026-09-16T06:00' }));
-  eq(at(s.stops[0].depart), '2026-09-16T09:00', 'set off at 09:00, not 06:00');
-  eq(s.stops[0].notes, ['wait-day'], 'and the card says why');
-  eq(formatClock(s.stops[1].arrive), '11:00', 'arrive 11:00');
+  eq(at(s.stops[0].depart), '2026-09-16T06:00', 'set off at 06:00, as asked');
+  eq(s.stops[0].notes, [], 'nothing to explain');
+  eq(formatClock(s.stops[1].arrive), '08:00', 'arrive 08:00');
+}
+
+console.log('\nA2. A start inside the curfew waits for it to end, and says so');
+{
+  // Lviv oblast: 00:00–05:00. Long drives start right after it.
+  const s = computeSchedule(trip([stop('A'), stop('B', { leg: car(540, 7 * 60) })], { start: '2026-09-16T04:00' }));
+  eq(at(s.stops[0].depart), '2026-09-16T05:00', 'set off at 05:00, when the curfew ends');
+  eq(s.stops[0].notes, ['wait-curfew'], 'the card says it is the curfew');
+  eq(formatClock(s.stops[1].arrive), '12:00', 'arrive 12:00');
+}
+
+console.log('\nA3. On the first day, plans after an early start do not wait for 09:00 either');
+{
+  const s = computeSchedule(trip([
+    stop('A', { activities: [act('pack the car', 30)] }),
+    stop('B', { leg: car(70, 60), activities: [act('breakfast', 45)] }),
+  ], { start: '2026-09-16T05:00' }));
+  eq(formatClock(s.stops[0].activities[0].start), '05:00', 'packing at 05:00');
+  eq(formatClock(s.stops[1].activities[0].start), '06:30', 'breakfast on arrival at 06:30');
+}
+
+console.log('\nA4. Later mornings still follow "my day"');
+{
+  const s = computeSchedule(trip([
+    stop('A'),
+    stop('B', { leg: car(70, 60), overnight: true }),
+    stop('C', { leg: car(70, 60) }),
+  ], { start: '2026-09-16T05:00' }));
+  eq(at(s.stops[1].depart), '2026-09-17T09:00', 'after the night, leave at dayStart');
 }
 
 console.log('\nB. A three-day drive: every calendar day is counted');

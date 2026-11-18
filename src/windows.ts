@@ -8,7 +8,7 @@
  * with a clock change still opens and closes at the hours it says.
  */
 import type { Curfew } from './types.ts';
-import { minutesOfDay, clockMinutes, wallClock } from './time.ts';
+import { minutesOfDay, clockMinutes, wallClock, dayKey } from './time.ts';
 
 export type Intervals = Array<[number, number]>;
 
@@ -46,6 +46,28 @@ export function subtract(base: Intervals, cut: Intervals): Intervals {
   return out;
 }
 
+/** Everything in `a` or `b`, as sorted, disjoint intervals. */
+export function union(a: Intervals, b: Intervals): Intervals {
+  const all = [...a, ...b].sort((x, y) => x[0] - y[0]);
+  const out: Intervals = [];
+  for (const [s, e] of all) {
+    const last = out[out.length - 1];
+    if (last && s <= last[1]) last[1] = Math.max(last[1], e);
+    else out.push([s, e]);
+  }
+  return out;
+}
+
+/**
+ * Allowed hours: the same every day, except on one calendar day that may
+ * differ — the day the trip starts, when the traveller's own start time
+ * counts even if it is earlier than their usual day.
+ */
+export interface Allowed {
+  daily: Intervals;
+  except?: { day: string; iv: Intervals };
+}
+
 /** Is the wall clock at `t` inside one of the intervals? */
 export function covers(iv: Intervals, t: Date): boolean {
   const m = clockMinutes(t);
@@ -67,23 +89,29 @@ const HORIZON_DAYS = 60;
  * midnight and picks up again at 00:00 is one stretch, not two: driving on
  * through midnight is not a pause.
  */
-export function nextRun(t: Date, iv: Intervals): Run | null {
-  if (!iv.length) return null;
+export function nextRun(t: Date, allowed: Intervals | Allowed): Run | null {
+  const a: Allowed = Array.isArray(allowed) ? { daily: allowed } : allowed;
+  const listFor = (day: number): Intervals =>
+    a.except && dayKey(wallClock(t, 0, day)) === a.except.day ? a.except.iv : a.daily;
 
-  const wholeDay = iv.length === 1 && iv[0][0] === 0 && iv[0][1] === 1440;
-  if (wholeDay) return { start: t, end: wallClock(t, 0, HORIZON_DAYS) };
-
-  const wrapsMidnight = iv[iv.length - 1][1] === 1440 && iv[0][0] === 0;
+  const whole = (iv: Intervals) => iv.length === 1 && iv[0][0] === 0 && iv[0][1] === 1440;
+  if (!a.except && whole(a.daily)) return { start: t, end: wallClock(t, 0, HORIZON_DAYS) };
 
   for (let day = 0; day <= HORIZON_DAYS; day++) {
-    for (const [a, b] of iv) {
-      const end = wallClock(t, b, day);
+    for (const [from, to] of listFor(day)) {
+      let end = wallClock(t, to, day);
       if (end <= t) continue;
-      const start = new Date(Math.max(wallClock(t, a, day).getTime(), t.getTime()));
+      const start = new Date(Math.max(wallClock(t, from, day).getTime(), t.getTime()));
+
       // Allowed until midnight and again from 00:00: one stretch, not two.
-      return b === 1440 && wrapsMidnight
-        ? { start, end: wallClock(t, iv[0][1], day + 1) }
-        : { start, end };
+      let reach = to;
+      for (let d = day + 1; reach === 1440 && d - day <= HORIZON_DAYS; d++) {
+        const next = listFor(d);
+        if (!next.length || next[0][0] !== 0) break;
+        reach = next[0][1];
+        end = wallClock(t, reach, d);
+      }
+      return { start, end };
     }
   }
   return null;

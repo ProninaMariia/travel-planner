@@ -32,8 +32,10 @@ flagged.
 
 ## How the schedule is computed
 
-- **My day** (`dayStart`..`dayEnd`, editable in the header): nothing is planned
-  before `dayStart`; the car does not drive after `dayEnd`.
+- **The start time is kept as set**, even before `dayStart` — long drives
+  start at 4–5 am, right after curfew. Only the curfew can move it.
+- **My day** (`dayStart`..`dayEnd`, editable in the header): mornings after a
+  night start at `dayStart`; the car does not drive after `dayEnd`.
 - **Curfew**: no driving, and no arriving by car, during the curfew of either
   end of a leg. Activities stop at the curfew. A train that arrives or leaves
   during curfew is kept as timetabled and flagged — the ticket works as a pass.

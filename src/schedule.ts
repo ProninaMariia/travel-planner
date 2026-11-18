@@ -3,11 +3,16 @@ import {
   parseLocal, dayKey, addMinutes, minutesBetween, nextDayAt, minutesOfDay, clockMinutes, wallClock,
 } from './time.ts';
 import { resolveCurfew, type ResolvedCurfew } from './curfew.ts';
-import { daily, curfewIntervals, subtract, covers, nextRun, type Intervals } from './windows.ts';
+import {
+  daily, curfewIntervals, subtract, union, covers, nextRun, type Intervals, type Allowed,
+} from './windows.ts';
 
 /**
  * The rules, in one place:
  *
+ * - The start time the traveller set is kept as it is: on the first day they
+ *   may set off before their usual dayStart (long drives start at 4–5 am,
+ *   right after curfew). Only the curfew can move it.
  * - Driving happens only inside the traveller's day (dayStart..dayEnd) and
  *   outside the curfew of both ends of the leg. A drive that cannot finish
  *   inside one day is flagged: nobody wants to pause on the hard shoulder.
@@ -98,7 +103,7 @@ const later = (a: Date, b: Date): Date => (a > b ? a : b);
 
 /** Drive for `minutes` from `from`, inside the allowed hours only. */
 function drive(
-  from: Date, minutes: number, iv: Intervals, km: number, add: Adder,
+  from: Date, minutes: number, iv: Allowed, km: number, add: Adder,
 ): { end: Date; split: boolean } {
   if (minutes <= 0) return { end: from, split: false };
 
@@ -129,7 +134,7 @@ function drive(
 
 /** Find room for one activity of `minutes`, whole, at or after `t`. */
 function place(
-  t: Date, minutes: number, iv: Intervals,
+  t: Date, minutes: number, iv: Allowed,
 ): { start: Date; end: Date; moved: boolean; tooLong: boolean } {
   if (minutes <= 0) return { start: t, end: t, moved: false, tooLong: false };
 
@@ -161,9 +166,18 @@ export function computeSchedule(trip: Trip): Schedule {
 
   const curfews = trip.stops.map(resolveCurfew);
   const blocked = curfews.map(c => curfewIntervals(c.curfew));
+
+  const start = parseLocal(trip.start) ?? new Date();
+  // The first day begins when the traveller said it does, even before dayStart.
+  const early: Intervals = clockMinutes(start) < dayStartMin ? [[clockMinutes(start), dayStartMin]] : [];
+  const withStartDay = (base: Intervals, cut: Intervals): Allowed => ({
+    daily: subtract(base, cut),
+    ...(early.length ? { except: { day: dayKey(start), iv: subtract(union(base, early), cut) } } : {}),
+  });
+
   /** Driving between stops a and b: inside the day, outside both curfews. */
-  const roadBetween = (a: number, b: number): Intervals =>
-    subtract(roadWindow, [...blocked[a], ...blocked[b]]);
+  const roadBetween = (a: number, b: number): Allowed =>
+    withStartDay(roadWindow, [...blocked[a], ...blocked[b]]);
 
   const dayMap = new Map<string, DayTotals>();
   const dayOf = (key: string): DayTotals => {
@@ -187,7 +201,6 @@ export function computeSchedule(trip: Trip): Schedule {
     }
   };
 
-  const start = parseLocal(trip.start) ?? new Date();
   const out: ScheduledStop[] = [];
   /** When the traveller leaves the previous stop. */
   let clock = start;
@@ -223,7 +236,7 @@ export function computeSchedule(trip: Trip): Schedule {
     }
 
     // ---- what happens here ----
-    const here = subtract(activityWindow, blocked[i]);
+    const here = withStartDay(activityWindow, blocked[i]);
     const activities: ScheduledActivity[] = [];
     let t = arrive;
     const buffer = stop.activities.some(a => a.minutes > 0) ? (s.stopBufferMinutes || 0) : 0;
@@ -277,7 +290,8 @@ export function computeSchedule(trip: Trip): Schedule {
         if (spansNight(earliest, depart)) {
           if (!stop.overnight) notes.push('night-auto');
         } else {
-          notes.push(covers(roadWindow, earliest) ? 'wait-curfew' : 'wait-day');
+          const inCurfew = covers(blocked[i], earliest) || covers(blocked[i + 1], earliest);
+          notes.push(inCurfew ? 'wait-curfew' : 'wait-day');
         }
       }
     }
